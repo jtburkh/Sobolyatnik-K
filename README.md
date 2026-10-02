@@ -14,6 +14,10 @@ This command checks the installer hash **before running it**. The installer veri
 
 **Current installer scope:** It installs the **in-game radar and Metro only**. It does **not** install the separate `rtv-toolkit.exe` terminal application or provide an uninstall command yet. The radar works without the terminal. To remove the radar now, **close the game**, then move `RtVRadarLoot.vmz` out of your Steam game's `mods` folder; leave Metro in place if other mods might use it. The installer does not edit saves or game binaries.
 
+![Concept illustration of the Sobolyatnik-K radar unit](assets/SOBOLYATNIK-K.png)
+
+*AI-generated concept illustration of the fictional unit—not an in-game screenshot or an equippable item.*
+
 ## What Sobolyatnik-K does in game
 
 The compact, dark tactical HUD shows **red enemies**, **blue Nomads**, short movement trails, and small **hollow loot markers**. `F7` cycles radar layers; `F8` hides or shows the drawing without stopping telemetry. The radar is independent of equipped inventory items and does not modify your character save.
