@@ -4,6 +4,7 @@ param(
     [Parameter(Mandatory = $true)][string] $LoaderSourceDirectory,
     [string] $FakeToolkitPath,
     [string] $RenderedInstaller,
+    [string] $RadarInstallerPath,
     [switch] $TestIntegration,
     [switch] $CheckToolkitHelp
 )
@@ -12,6 +13,8 @@ $ErrorActionPreference = 'Stop'
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).ProviderPath
 $archive = (Resolve-Path -LiteralPath $ArchivePath).ProviderPath
 $loader = (Resolve-Path -LiteralPath $LoaderSourceDirectory).ProviderPath
+$legacy = if ($RadarInstallerPath) { (Resolve-Path -LiteralPath $RadarInstallerPath).ProviderPath }
+    else { (Resolve-Path -LiteralPath (Join-Path $repo 'tools\install-sobolyatnik.ps1')).ProviderPath }
 $root = Join-Path ([IO.Path]::GetTempPath()) ('sobolyatnik-bundle-test-' + [guid]::NewGuid().ToString('N'))
 $oldLocal = $env:LOCALAPPDATA
 $oldApp = $env:APPDATA
@@ -50,7 +53,7 @@ try {
     } else { throw 'Pass both -FakeToolkitPath and -RenderedInstaller, or neither.' }
     $args = @{
         GamePath = $game; ArchivePath = $archive; LoaderSourceDirectory = $loader
-        ToolkitPath = $fakeExe; RadarInstallerPath = (Join-Path $repo 'tools\install-sobolyatnik.ps1')
+        ToolkitPath = $fakeExe; RadarInstallerPath = $legacy
         UninstallerPath = (Join-Path $repo 'tools\uninstall-sobolyatnik.ps1')
     }
     if (-not $TestIntegration) { $args.NoIntegration = $true }
@@ -94,7 +97,7 @@ try {
     Check ([IO.File]::ReadAllText((Join-Path $game 'RTV.exe')) -eq 'fixture game binary') 'Game binary changed'
     # Upgrade someone who already installed v0.1.8 on another computer. Metro's
     # override.cfg is rewritten by its two-pass startup; leave those bytes alone.
-    & (Join-Path $repo 'tools\install-sobolyatnik.ps1') -GamePath $game -ArchivePath $archive | Out-Null
+    & $legacy -GamePath $game -ArchivePath $archive | Out-Null
     $override = Join-Path $game 'override.cfg'
     [IO.File]::WriteAllText($override, '[autoload_prepend]' + "`n" + 'ModLoader="*res://modloader.gd"' + "`n" + '[autoload]')
     $overrideHash = (Get-FileHash $override -Algorithm SHA256).Hash
@@ -103,7 +106,7 @@ try {
     Check ((Get-FileHash $radar -Algorithm SHA256).Hash -eq '66FD97A4C1487BE6688EF94B59EE709A3BAA8C7886C490D2F03AF7B8C395EEFC') 'Upgrade replaced the tested VMZ'
     & $rendered -Uninstall -NoIntegration:(-not $TestIntegration) | Out-Null
     Check ((Get-FileHash $override -Algorithm SHA256).Hash -eq $overrideHash) 'Uninstall overwrote Metro state'
-    Fails { & $rendered -GamePath $game -ArchivePath $archive -ToolkitPath (Join-Path $root 'missing.exe') -UninstallerPath (Join-Path $repo 'tools\uninstall-sobolyatnik.ps1') -RadarInstallerPath (Join-Path $repo 'tools\install-sobolyatnik.ps1') -NoIntegration } 'Cannot find path'
+    Fails { & $rendered -GamePath $game -ArchivePath $archive -ToolkitPath (Join-Path $root 'missing.exe') -UninstallerPath (Join-Path $repo 'tools\uninstall-sobolyatnik.ps1') -RadarInstallerPath $legacy -NoIntegration } 'Cannot find path'
     Check (-not (Test-Path -LiteralPath $radar)) 'Missing Toolkit source unexpectedly installed radar'
     Write-Host 'BUNDLE SMOKE OK: clean and v0.1.8 upgrades, dry run, hashes, receipt, idempotence, tamper refusal, running-game guard, uninstall retaining Metro.'
 } catch {

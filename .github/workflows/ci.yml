@@ -139,8 +139,13 @@ jobs:
       - name: Check radar-only installer against disposable Steam libraries
         shell: powershell
         run: ./tests/installer/smoke.ps1 -ArchivePath ./dist/probes/RtVRadarLoot.vmz -LoaderSourceDirectory ./dist/metro -TestLoaderDownload
+      - name: Obtain exact pinned v0.1.8 installer (Windows checkout normalizes line endings)
+        shell: powershell
+        run: |
+          Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.8-experimental/install-sobolyatnik.ps1' -OutFile dist/windows/install-sobolyatnik-v0.1.8.ps1
+          if ((Get-FileHash dist/windows/install-sobolyatnik-v0.1.8.ps1 -Algorithm SHA256).Hash -ne 'FC8B4D38F2373B750BD9457BD3D779A5CE613E541F6643AEFFD99634B3F0DF72') { throw 'Legacy radar installer hash mismatch' }
       - name: Render reviewed bundle template with tested Windows EXE
         run: python tools/render_bundle_installer.py --toolkit dist/windows/rtv-toolkit.exe --output dist/windows/setup-sobolyatnik.ps1
       - name: Check complete bundle, Windows entries, and safe uninstall
         shell: powershell
-        run: ./tests/installer/bundle-smoke.ps1 -ArchivePath ./dist/probes/RtVRadarLoot.vmz -LoaderSourceDirectory ./dist/metro -FakeToolkitPath ./dist/windows/rtv-toolkit.exe -RenderedInstaller ./dist/windows/setup-sobolyatnik.ps1 -TestIntegration -CheckToolkitHelp
+        run: ./tests/installer/bundle-smoke.ps1 -ArchivePath ./dist/probes/RtVRadarLoot.vmz -LoaderSourceDirectory ./dist/metro -FakeToolkitPath ./dist/windows/rtv-toolkit.exe -RenderedInstaller ./dist/windows/setup-sobolyatnik.ps1 -RadarInstallerPath ./dist/windows/install-sobolyatnik-v0.1.8.ps1 -TestIntegration -CheckToolkitHelp
