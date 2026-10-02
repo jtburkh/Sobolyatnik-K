@@ -75,16 +75,27 @@ jobs:
           unzip -p dist/probes/RtVRadarLoot.vmz RtVRadarLiteOverlay.gd | grep -F '"SOBOLYATNIK-K"'
           ! unzip -p dist/probes/RtVRadarLoot.vmz mod.txt | grep -F 'res://Scripts/AI.gd'
           ! unzip -p dist/probes/RtVRadarLoot.vmz RtVRadarLiteOverlay.gd | grep -F 'func _input'
+          echo '66fd97a4c1487be6688ef94b59ee709a3baa8c7886c490d2f03af7b8c395eefc  dist/probes/RtVRadarLoot.vmz' | sha256sum -c -
+      - name: Share exact verified VMZ with Windows fixture tests
+        uses: actions/upload-artifact@v4
+        with:
+          name: pinned-radar-vmz
+          path: dist/probes/RtVRadarLoot.vmz
+          if-no-files-found: error
 
   installer:
+    needs: quality
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/download-artifact@v4
         with:
-          python-version: '3.12'
-      - name: Build exact radar VMZ
-        run: python tools/package_radar_lite.py
+          name: pinned-radar-vmz
+          path: dist/probes
+      - name: Verify the tested VMZ (do not rebuild with a different zlib)
+        shell: powershell
+        run: |
+          if ((Get-FileHash dist/probes/RtVRadarLoot.vmz -Algorithm SHA256).Hash -ne '66FD97A4C1487BE6688EF94B59EE709A3BAA8C7886C490D2F03AF7B8C395EEFC') { throw 'Radar VMZ hash mismatch' }
       - name: Obtain pinned upstream Metro fixture files
         shell: powershell
         run: |
