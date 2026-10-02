@@ -106,6 +106,11 @@ try {
     Fails { & $rendered -GamePath $game -ArchivePath $archive -ToolkitPath (Join-Path $root 'missing.exe') -UninstallerPath (Join-Path $repo 'tools\uninstall-sobolyatnik.ps1') -RadarInstallerPath (Join-Path $repo 'tools\install-sobolyatnik.ps1') -NoIntegration } 'Cannot find path'
     Check (-not (Test-Path -LiteralPath $radar)) 'Missing Toolkit source unexpectedly installed radar'
     Write-Host 'BUNDLE SMOKE OK: clean and v0.1.8 upgrades, dry run, hashes, receipt, idempotence, tamper refusal, running-game guard, uninstall retaining Metro.'
+} catch {
+    # Surface the actual fixture error as a public CI annotation; generic job
+    # failures are otherwise difficult to diagnose without Actions log access.
+    Write-Host "::error title=Windows bundle fixture::$($_.Exception.Message)"
+    throw
 } finally {
     $env:LOCALAPPDATA = $oldLocal
     $env:APPDATA = $oldApp
