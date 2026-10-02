@@ -28,6 +28,7 @@ var _include_loot := false
 var _loot_scan_elapsed := 0.0
 var _loot_scan_initialized := false
 var _loot_cache: Array[Dictionary] = []
+var _loot_scene_id := 0
 var _hud_visible := true
 var _has_player := false
 var _f7_down := false
@@ -85,6 +86,14 @@ func _process(delta: float) -> void:
 	var player := get_tree().get_first_node_in_group("Player")
 	if player == null:
 		_has_player = false
+		_clear_loot_cache()
+		if is_instance_valid(_radar):
+			_radar.visible = false
+		return
+	var scene := get_tree().current_scene
+	if scene == null or not is_instance_valid(scene) or scene.is_queued_for_deletion() or not scene.is_ancestor_of(player):
+		_has_player = false
+		_clear_loot_cache()
 		if is_instance_valid(_radar):
 			_radar.visible = false
 		return
@@ -92,11 +101,15 @@ func _process(delta: float) -> void:
 	var forward: Variant = _game_data.get("playerVector")
 	if not position is Vector3 or not forward is Vector3:
 		_has_player = false
+		_clear_loot_cache()
 		if is_instance_valid(_radar):
 			_radar.visible = false
 		return
 	_has_player = true
-	var scene := get_tree().current_scene
+	var scene_id := scene.get_instance_id()
+	if scene_id != _loot_scene_id:
+		_clear_loot_cache()
+		_loot_scene_id = scene_id
 	var map_identity := {}
 	if scene != null:
 		var scene_path := scene.scene_file_path
@@ -200,10 +213,20 @@ func _exit_tree() -> void:
 		_trace_file = null
 
 
+func _clear_loot_cache() -> void:
+	_loot_cache.clear()
+	_loot_scan_elapsed = 0.0
+	_loot_scan_initialized = false
+	_loot_scene_id = 0
+
+
 func _scan_loot_nodes() -> Array[Dictionary]:
 	var found: Dictionary = {}
+	var scene := get_tree().current_scene
+	if scene == null or not is_instance_valid(scene):
+		return []
 	for proxy in get_tree().get_nodes_in_group("Interactable"):
-		if not is_instance_valid(proxy) or proxy.is_queued_for_deletion():
+		if not is_instance_valid(proxy) or proxy.is_queued_for_deletion() or not scene.is_ancestor_of(proxy):
 			continue
 		var current: Node = proxy
 		for depth in 8:
@@ -245,6 +268,9 @@ func _collect_loot(player_position: Vector3) -> Array[Dictionary]:
 		if not node is Node3D or not is_instance_valid(node) or node.is_queued_for_deletion():
 			continue
 		var container := node as Node3D
+		var scene := get_tree().current_scene
+		if scene == null or not container.is_inside_tree() or not scene.is_ancestor_of(container):
+			continue
 		if not container.is_visible_in_tree() or not _loot_proxy_enabled(entry):
 			continue
 		var position := container.global_position

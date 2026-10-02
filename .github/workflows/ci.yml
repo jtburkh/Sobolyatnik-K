@@ -54,7 +54,7 @@ jobs:
           unzip -t dist/probes/RtVRadarInGame.vmz
           unzip -t dist/probes/RtVRadarControls.vmz
           unzip -t dist/probes/RtVRadarLoot.vmz
-          unzip -p dist/probes/RtVRadarLite.vmz mod.txt | grep -F 'version="0.1.7"'
+          unzip -p dist/probes/RtVRadarLite.vmz mod.txt | grep -F 'version="0.1.8"'
           unzip -p dist/probes/RtVRadarLite.vmz RtVRadarLite.gd | grep -F 'const CONTACTS_DEFAULT := false'
           unzip -p dist/probes/RtVRadarContacts.vmz RtVRadarLite.gd | grep -F 'const CONTACTS_DEFAULT := true'
           ! unzip -p dist/probes/RtVRadarLite.vmz RtVRadarLite.gd | grep -F 'func _input'

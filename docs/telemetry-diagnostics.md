@@ -66,7 +66,7 @@ identities and avoid changing the user's config:
   `dist/held/RtVRadarControls-0.1.3-combat-passed.vmz`.
   F7 cycles AI+trails / AI-only / trails-only; F8 hides/shows drawing but
   does **not** stop collection or UDP. Neither script consumes game input.
-- `dist/probes/RtVRadarLoot.vmz`: **0.1.7 Sobolyatnik-K (Sable Hunter) Experimental — 1L108K**. Same
+- `dist/probes/RtVRadarLoot.vmz`: **0.1.8 Sobolyatnik-K (Sable Hunter) Experimental — 1L108K** (installed; one positive Village↔Attic session, not general release clearance). Same
   controls/AI collector, plus an isolated 1 Hz scan of `Interactable` proxies
   for live `LootContainer` objects, with fresh reads of `storage`/`loot` for
   nonempty interactable containers. The radar draws **hollow** green unlocked,
@@ -80,11 +80,20 @@ identities and avoid changing the user's config:
   loot reads recur near map transitions. Version 0.1.7 only renames the HUD
   title to `SOBOLYATNIK-K` with `1L108K` and the manifest display name to
   `Sobolyatnik-K (Sable Hunter) Experimental — 1L108K`; loader ID and VMZ
-  filename remain fixed, and the collector is byte-identical to 0.1.6.
-  The exact 0.1.6 VMZ is held at
-  `dist/held/RtVRadarLoot-0.1.6-pre-sobolyatnik.vmz` for rollback. The only
-  installed VMZ is currently 0.1.7; it has **not** been checked in-game yet.
-  The separately built terminal preview is
+  filename remain fixed, and the 0.1.7 collector is byte-identical to 0.1.6.
+  The 0.1.8 candidate additionally clears cached loot references when the
+  scene or player disappears, filters Interactable proxies to the active scene,
+  and skips cached containers outside it; this is a protective hypothesis for
+  incomplete trace phases, **not** a proven native-crash fix. The exact 0.1.6 VMZ is held at
+  `dist/held/RtVRadarLoot-0.1.6-validated-style.vmz` for rollback, and the
+  naming-only 0.1.7 VMZ is held at
+  `dist/held/RtVRadarLoot-0.1.7-pre-scene-guard.vmz`. The only installed VMZ
+  is currently 0.1.8. The user reported that it seemed to work; read-only
+  post-session checks found Village↔Attic transitions with AI hits in the Godot
+  log, no logged script errors or new crash dump, and 2,360 paired contact,
+  loot-read and UDP phases (473 paired scans, zero unmatched loot reads).
+  This is evidence for that one session, not proof of crash root cause or broad
+  stability. The separately built terminal preview is
   `dist/preview/rtv-toolkit-sobolyatnik` (do not replace a running Toolkit).
   Investigate incomplete loot reads before adding additional game reads.
 
@@ -92,10 +101,11 @@ Contacts-enabled variants create a new capped 1 MiB
 `user://rtv-radar-lite-trace-*.log`, flushing contact-read and UDP phases.
 The trace narrows a failure but cannot attribute a native crash by itself;
 flushing also changes timing. The loot VMZ additionally flushes `loot.scan`
-and `loot.read` phases. All five **current** 0.1.7 archives are offline-tested
-only; earlier in-game results apply to their exact preserved older archives,
-not automatically to these builds. The offline mock Godot 4.8.dev test does
-not reproduce RTV's Godot 4.6.3 runtime:
+and `loot.read` phases. All five **current** 0.1.8 archives passed a synthetic
+mock under the official Godot 4.6.3 Linux binary (matching RTV's Godot engine
+version). The mock verifies stale-scene loot exclusion but does **not** reproduce
+RTV's game lifecycle or prove native stability. Earlier in-game results apply
+to exact preserved older archives, not automatically to these builds:
 
 ```bash
 python3 tools/test_radar_lite.py --engine /path/to/godot

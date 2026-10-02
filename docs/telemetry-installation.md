@@ -2,7 +2,7 @@
 
 ## Packaging decision
 
-Sobolyatnik-K's Rust executable does **not** silently modify the Road to Vostok directory. The separately packaged, playable 0.1.7 radar is `dist/probes/RtVRadarLoot.vmz` (see the [README](../README.md)); `RtVTelemetryProof.vmz` is a quarantined 0.8.3 diagnostic, **not** a release asset. Public releases are paused while Build 2 stability work continues.
+Sobolyatnik-K's Rust executable does **not** silently modify the Road to Vostok directory. The current `dist/probes/RtVRadarLoot.vmz` packager output is a **0.1.8 scene-transition candidate with one positive in-game test**, not cleared for general release (see the [README](../README.md)); `RtVTelemetryProof.vmz` is a quarantined 0.8.3 diagnostic, **not** a release asset. Public releases are paused while Build 2 stability work continues.
 
 Automatic embedded installation was evaluated and intentionally rejected:
 

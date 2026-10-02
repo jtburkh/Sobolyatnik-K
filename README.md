@@ -2,7 +2,7 @@
 
 **Sobolyatnik-K (Sable Hunter) Experimental — 1L108K** is an unofficial radar mod and companion terminal application for [Road to Vostok](https://roadtovostok.com/). The terminal also includes an offline inventory/save editor. This project is not affiliated with the game developer.
 
-> **Build 2 status:** The small in-game radar has passed staged inventory, loot, AI, and combat sessions on Steam build 25632875 (Godot 4.6.3). The current 0.1.7 archive changes only the display name and HUD labels from the tested 0.1.6; **0.1.7 has not yet been checked in-game**. No version is guaranteed crash-free. Keep a known-good rollback archive. Do not use the older 0.8.0–0.8.2 telemetry bridge; it coincided with combat crashes or inventory regression.
+> **Build 2 status:** The small in-game radar has passed staged inventory, loot, AI, and combat sessions on Steam build 25632875 (Godot 4.6.3). The naming-only 0.1.7 archive was not checked in-game. The currently installed 0.1.8 archive adds scene-transition loot-cache guards; it passed an offline mock under the same Godot 4.6.3 engine version and one positive user gameplay session across Village↔Attic with no new dump or incomplete loot trace phase. This is **not** universal crash clearance. No version is guaranteed crash-free. Keep a known-good rollback archive. Do not use the older 0.8.0–0.8.2 telemetry bridge; it coincided with combat crashes or inventory regression.
 
 ## What works today
 
@@ -21,7 +21,7 @@ cargo build --release
 python3 tools/package_radar_lite.py
 ```
 
-The executable remains `target/release/rtv-toolkit` (`.exe` on Windows) for command-line compatibility. The playable radar archive is `dist/probes/RtVRadarLoot.vmz`; the other archives from that packaging script are isolated diagnostic variants, **not additional mods to install together**. Generated archives, local builds, backups, game files, crash dumps, and saves are not tracked in this repository.
+The executable remains `target/release/rtv-toolkit` (`.exe` on Windows) for command-line compatibility. The radar archive is `dist/probes/RtVRadarLoot.vmz`; version 0.1.8 has passed an initial in-game session but remains under stability testing. The other archives from that packaging script are isolated diagnostic variants, **not additional mods to install together**. Generated archives, local builds, backups, game files, crash dumps, and saves are not tracked in this repository.
 
 ## In-game radar
 

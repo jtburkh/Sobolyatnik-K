@@ -145,6 +145,48 @@ func _run() -> void:
 			_fail("Contact trace missing flushed phases: %s" % trace)
 			return
 		print("SMOKE OK: contact trace flushed")
+	if started_with_loot:
+		# Discard any packets left by the movement-trail portion of this test.
+		while receiver.get_available_packet_count() > 0:
+			receiver.get_packet()
+		# Keep the old map (and its Interactable group member) alive while the
+		# new scene starts. Only loot belonging to current_scene may be read.
+		player.remove_from_group("Player")
+		bridge.call("_process", 0.21)
+		if not bridge.get("_loot_cache").is_empty():
+			_fail("Leaving a scene did not clear cached loot references")
+			return
+		var new_map := Node3D.new()
+		new_map.name = "MapNew"
+		root.add_child(new_map)
+		current_scene = new_map
+		player.add_to_group("Player") # An old Player can linger after current_scene changes.
+		bridge.call("_process", 0.21)
+		if receiver.get_available_packet_count() != 0 or not bridge.get("_loot_cache").is_empty():
+			_fail("Old scene player generated telemetry after current_scene changed")
+			return
+		player.remove_from_group("Player")
+		var new_player := Node3D.new()
+		new_player.add_to_group("Player")
+		new_map.add_child(new_player)
+		bridge.call("_process", 0.21)
+		var changed := _receive(receiver)
+		if not changed.get("loot", []).is_empty() or not bridge.get("_loot_cache").is_empty():
+			_fail("Old map loot leaked into a new scene: %s" % changed)
+			return
+		var new_crate: Node3D = load("res://Scripts/LootContainer.gd").new()
+		new_crate.position = Vector3(9, 0, 0)
+		new_map.add_child(new_crate)
+		var new_proxy := CollisionShape3D.new()
+		new_proxy.shape = SphereShape3D.new()
+		new_proxy.add_to_group("Interactable")
+		new_crate.add_child(new_proxy)
+		bridge.call("_process", 1.01) # Discover the new map's loot on the 1 Hz scan.
+		var fresh := _receive(receiver)
+		if fresh.get("loot", []).size() != 1 or fresh["loot"][0].get("position") != [9.0, 0.0, 0.0]:
+			_fail("New map loot did not replace stale scene cache: %s" % fresh)
+			return
+		print("SMOKE OK: stale scene loot cleared; new map loot discovered")
 	quit()
 
 

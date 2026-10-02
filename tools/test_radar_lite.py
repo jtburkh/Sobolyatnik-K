@@ -83,7 +83,8 @@ def main() -> None:
             if variant in ("controls", "loot"):
                 markers.append("SMOKE OK: F7 layer/trail and F8 visibility state transitions")
             if variant == "loot":
-                markers.append("SMOKE OK: loot available/empty and interaction proxy gating")
+                markers.extend(("SMOKE OK: loot available/empty and interaction proxy gating",
+                                "SMOKE OK: stale scene loot cleared; new map loot discovered"))
             for marker in markers:
                 if marker not in output:
                     raise SystemExit(f"{variant}: missing {marker!r}")
