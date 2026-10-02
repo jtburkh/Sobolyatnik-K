@@ -1,0 +1,47 @@
+name: Experimental radar VMZ
+
+# No release occurs on branch pushes. Tagging this exact tested version is an
+# explicit maintainer decision; the action refuses changed archive/script bytes.
+on:
+  push:
+    tags:
+      - v0.1.8-experimental
+
+permissions:
+  contents: write
+
+jobs:
+  radar:
+    if: github.repository == 'jtburkh/Sobolyatnik-K'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Package and verify pinned assets
+        run: |
+          python3 tools/package_radar_lite.py
+          echo '66fd97a4c1487be6688ef94b59ee709a3baa8c7886c490d2f03af7b8c395eefc  dist/probes/RtVRadarLoot.vmz' | sha256sum -c -
+          echo 'fc8b4d38f2373b750bd9457bd3d779a5ce613e541f6643aeffd99634b3f0df72  tools/install-sobolyatnik.ps1' | sha256sum -c -
+          unzip -t dist/probes/RtVRadarLoot.vmz
+          mkdir -p dist/release
+          cp dist/probes/RtVRadarLoot.vmz tools/install-sobolyatnik.ps1 dist/release/
+      - name: Publish explicitly tagged experimental prerelease
+        uses: softprops/action-gh-release@v2
+        with:
+          prerelease: true
+          draft: false
+          fail_on_unmatched_files: true
+          name: 'Sobolyatnik-K 0.1.8 Experimental — Road to Vostok Build 2'
+          body: |
+            Experimental radar for Road to Vostok Steam build 25632875 (Godot 4.6.3).
+            Source-visible PowerShell installer checks the closed game and Steam
+            build, downloads pinned official Metro Mod Loader 3.2.1 assets only if
+            neither loader file exists, validates all hashes, and keeps rollback
+            backups. Existing or partial loader installations are never overwritten.
+            This is not full stability or cross-build clearance; gunshot hooks,
+            sensor reads, artifact and summons are not included.
+          files: |
+            dist/release/RtVRadarLoot.vmz
+            dist/release/install-sobolyatnik.ps1

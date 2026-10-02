@@ -75,3 +75,24 @@ jobs:
           unzip -p dist/probes/RtVRadarLoot.vmz RtVRadarLiteOverlay.gd | grep -F '"SOBOLYATNIK-K"'
           ! unzip -p dist/probes/RtVRadarLoot.vmz mod.txt | grep -F 'res://Scripts/AI.gd'
           ! unzip -p dist/probes/RtVRadarLoot.vmz RtVRadarLiteOverlay.gd | grep -F 'func _input'
+
+  installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build exact radar VMZ
+        run: python tools/package_radar_lite.py
+      - name: Obtain pinned upstream Metro fixture files
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path dist/metro | Out-Null
+          Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/ametrocavich/vostok-mod-loader/releases/download/v3.2.1/modloader.gd' -OutFile dist/metro/modloader.gd
+          Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/ametrocavich/vostok-mod-loader/releases/download/v3.2.1/override.cfg' -OutFile dist/metro/override.cfg
+          if ((Get-FileHash dist/metro/modloader.gd -Algorithm SHA256).Hash -ne '60FCF7FEEC0A47C6472E3B7A190B46987B374618AE3D149C081B222542BC6135') { throw 'Metro script hash mismatch' }
+          if ((Get-FileHash dist/metro/override.cfg -Algorithm SHA256).Hash -ne '9750A66FCF0CB1D9BF84284271F52E064F455CDD5A1CDC4981A007E4011A684B') { throw 'Metro override hash mismatch' }
+      - name: Check installer against disposable Steam libraries
+        shell: powershell
+        run: ./tests/installer/smoke.ps1 -ArchivePath ./dist/probes/RtVRadarLoot.vmz -LoaderSourceDirectory ./dist/metro -TestLoaderDownload

@@ -25,7 +25,13 @@ The executable remains `target/release/rtv-toolkit` (`.exe` on Windows) for comm
 
 ## In-game radar
 
-Install [Metro Mod Loader](https://modworkshop.net/mod/55623) following its own instructions. With **Road to Vostok closed**, put only `RtVRadarLoot.vmz` in the game's `mods` directory (remove conflicting older radar VMZs first). Do not extract the archive. The loader should list **Sobolyatnik-K (Sable Hunter) Experimental — 1L108K**. To revert, close the game before restoring a verified earlier VMZ. No game binaries, loader files, or save files need to be edited by this mod.
+A [hash-verified one-line Windows installer](docs/windows-installer.md) is
+available **only after** the explicitly tagged `v0.1.8-experimental` prerelease
+assets appear on GitHub. Until then, use the manual source build below. The
+installer downloads pinned official Metro Mod Loader 3.2.1 files for a clean
+game, but never replaces an existing loader or bypasses Build 2 checks.
+
+Install [Metro Mod Loader](https://modworkshop.net/mod/55623) following its own instructions. With **Road to Vostok closed**, put only `RtVRadarLoot.vmz` in the game's `mods` directory (remove conflicting older radar VMZs first). Do not extract the archive. The loader should list **Sobolyatnik-K (Sable Hunter) Experimental — 1L108K**. To revert, close the game before restoring a verified earlier VMZ. The radar VMZ itself does not edit game binaries, loader files, or saves; a first-time Metro installation does add the loader's two startup files.
 
 The bridge sends UDP to `127.0.0.1:47777` by default. For a Toolkit running under WSL 2, set the game's `%APPDATA%/Road to Vostok/rtv-telemetry.cfg` to the **current** WSL IP (which may change on restart):
 

@@ -2,7 +2,7 @@
 
 ## Packaging decision
 
-Sobolyatnik-K's Rust executable does **not** silently modify the Road to Vostok directory. The current `dist/probes/RtVRadarLoot.vmz` packager output is a **0.1.8 scene-transition candidate with one positive in-game test**, not cleared for general release (see the [README](../README.md)); `RtVTelemetryProof.vmz` is a quarantined 0.8.3 diagnostic, **not** a release asset. Public releases are paused while Build 2 stability work continues.
+Sobolyatnik-K's Rust executable does **not** silently modify the Road to Vostok directory. A separate, explicitly invoked [hash-verified Windows installer](windows-installer.md) supports clean-game first-time setup once its experimental prerelease is published (it downloads official Metro loader 3.2.1 assets, never overwrites an existing loader). The current `dist/probes/RtVRadarLoot.vmz` packager output is a **0.1.8 scene-transition candidate with one positive in-game test**, not cleared for general release (see the [README](../README.md)); `RtVTelemetryProof.vmz` is a quarantined 0.8.3 diagnostic, **not** a release asset. Public releases are paused while Build 2 stability work continues.
 
 Automatic embedded installation was evaluated and intentionally rejected:
 
@@ -13,7 +13,7 @@ Automatic embedded installation was evaluated and intentionally rejected:
 - native Windows, Proton, and WSL expose different installation paths;
 - an explicit copy is easy to inspect, reverse, and troubleshoot.
 
-The radar VMZ is installed manually; it is not required for offline save editing. Never install the diagnostic bridge alongside the playable radar.
+The radar VMZ can be installed manually or by the separate installer once its experimental prerelease is published; it is not required for offline save editing. Never install the diagnostic bridge alongside the playable radar.
 
 ## Build 2 crash investigation (0.8.3 tracing, not a release)
 
