@@ -1,6 +1,6 @@
 # Sobolyatnik-K — Sable Hunter 1L108K
 
-An experimental in-game radar for **Road to Vostok**, with a separate terminal Toolkit for managing your character while the game is closed. Unofficial; not affiliated with the game developer.
+Sobolyatnik-K is a mod for the for **Road to Vostok**.  It includes an in-game RADAR with switches to change between tracking humans, their footsteps, and loot.  It also comes with a separate terminal user interface (TUI) (RtV Toolkit) for managing your character while the game is closed. This is an Unofficial mod and is not affiliated with the game developer.  Much appreciation to Antti for making a fun game! 
 
 ## Install the radar (Windows / Steam)
 
@@ -10,7 +10,7 @@ Install Road to Vostok **Steam build 25632875**, close the game, then paste this
 $ErrorActionPreference='Stop'; $p=Join-Path $env:TEMP 'sobolyatnik-k-v0.1.8.ps1'; Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.8-experimental/install-sobolyatnik.ps1' -OutFile $p; if ((Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash -ne 'FC8B4D38F2373B750BD9457BD3D779A5CE613E541F6643AEFFD99634B3F0DF72') { throw 'Installer checksum mismatch; nothing was executed' }; & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $p
 ```
 
-This command checks the installer hash **before running it**. The installer verifies its downloads, installs [official Metro Mod Loader 3.2.1](https://github.com/ametrocavich/vostok-mod-loader/releases/tag/v3.2.1) if neither loader file exists, and installs the [v0.1.8-experimental radar VMZ](https://github.com/jtburkh/Sobolyatnik-K/releases/tag/v0.1.8-experimental). It refuses unsupported builds, conflicting VMZs, and partial or incompatible Metro installations. An older radar VMZ is backed up before replacement. See [installer details and safeguards](docs/windows-installer.md).
+This command checks the installer hash **before running it**. The installer verifies its downloads, installs [official Metro Mod Loader 3.2.1](https://github.com/ametrocavich/vostok-mod-loader/releases/tag/v3.2.1) if neither loader file exists, and installs the [v0.1.8-experimental Sobolyatnik-K radar VMZ](https://github.com/jtburkh/Sobolyatnik-K/releases/tag/v0.1.8-experimental). It refuses unsupported builds, conflicting VMZs, and partial or incompatible Metro installations. An older radar VMZ is backed up before replacement. See [installer details and safeguards](docs/windows-installer.md).
 
 **Current release (v0.1.8): radar only.** It does **not** install the separate `rtv-toolkit.exe` terminal application or provide an uninstall command. The radar works without the terminal. To remove it, **close the game**, then move `RtVRadarLoot.vmz` out of your Steam game's `mods` folder; leave Metro in place if other mods might use it. The installer does not edit saves or game binaries.
 
