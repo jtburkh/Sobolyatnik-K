@@ -1,8 +1,13 @@
-# Telemetry bridge installation and lifecycle
+# Diagnostic telemetry bridge — developer-only lifecycle
+
+**Not the public radar installation guide.** For normal play, use the
+[install-first README](../README.md) and [radar-only Windows installer](windows-installer.md).
+The bridge described below is quarantined diagnostic source; do not install it
+alongside Sobolyatnik-K.
 
 ## Packaging decision
 
-Sobolyatnik-K's Rust executable does **not** silently modify the Road to Vostok directory. A separate, explicitly invoked [hash-verified Windows installer](windows-installer.md) supports clean-game first-time setup once its experimental prerelease is published (it downloads official Metro loader 3.2.1 assets, never overwrites an existing loader). The current `dist/probes/RtVRadarLoot.vmz` packager output is a **0.1.8 scene-transition candidate with one positive in-game test**, not cleared for general release (see the [README](../README.md)); `RtVTelemetryProof.vmz` is a quarantined 0.8.3 diagnostic, **not** a release asset. Public releases are paused while Build 2 stability work continues.
+Sobolyatnik-K's Rust executable does **not** silently modify the Road to Vostok directory. The separately invoked, [published v0.1.8 experimental installer](windows-installer.md) installs official Metro 3.2.1 on a clean game and the exact radar VMZ. It does **not** install the Toolkit executable or uninstaller; those are being tested for a [separate release](windows-bundle.md). The 0.1.8 radar has one positive in-game transition session, **not** general crash clearance. `RtVTelemetryProof.vmz` is quarantined 0.8.3 diagnostic source, **not** a release asset. No stable release is offered while Build 2 stability work continues.
 
 Automatic embedded installation was evaluated and intentionally rejected:
 
@@ -13,7 +18,7 @@ Automatic embedded installation was evaluated and intentionally rejected:
 - native Windows, Proton, and WSL expose different installation paths;
 - an explicit copy is easy to inspect, reverse, and troubleshoot.
 
-The radar VMZ can be installed manually or by the separate installer once its experimental prerelease is published; it is not required for offline save editing. Never install the diagnostic bridge alongside the playable radar.
+The radar VMZ can be installed manually or via the published radar-only installer; it is not required for offline save editing. Never install the diagnostic bridge alongside the playable radar.
 
 ## Build 2 crash investigation (0.8.3 tracing, not a release)
 
@@ -36,7 +41,7 @@ following the [controlled crash-isolation plan](telemetry-diagnostics.md).
 ## Diagnostic setup outline (requires explicit consent; not for normal play)
 
 1. Exit Road to Vostok and verify no `RTV.exe` process remains.
-2. Install Metro Mod Loader 3.2.1 or newer from <https://modworkshop.net/mod/55623> according to its documentation.
+2. Install the tested Metro Mod Loader 3.2.1 from <https://modworkshop.net/mod/55623> according to its documentation; other versions are not validated here.
 3. Copy `RtVTelemetryProof.vmz` into the game's `mods` directory without extracting it.
 4. Start the game and confirm the loader lists `RtV Telemetry Trace Diagnostics`, version `0.8.3`, as enabled.
 5. Start the terminal application. Select Radar with `4`.

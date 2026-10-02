@@ -1,0 +1,83 @@
+name: Experimental radar and Windows Toolkit bundle
+
+# A branch push cannot publish this release. Explicit maintainer tagging only;
+# the published radar VMZ remains byte-identical to the tested 0.1.8 archive.
+on:
+  push:
+    tags:
+      - v0.1.9-experimental
+
+permissions:
+  contents: write
+
+jobs:
+  windows-toolkit:
+    if: github.repository == 'jtburkh/Sobolyatnik-K'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+      - name: Build and test the Toolkit on Windows
+        shell: powershell
+        run: |
+          cargo test --locked --target x86_64-pc-windows-msvc
+          if ($LASTEXITCODE -ne 0) { throw 'Windows Rust tests failed' }
+          cargo build --locked --release --target x86_64-pc-windows-msvc
+          if ($LASTEXITCODE -ne 0) { throw 'Windows Toolkit build failed' }
+          $exe = 'target/x86_64-pc-windows-msvc/release/rtv-toolkit.exe'
+          $helpText = & $exe --help | Out-String
+          if ($LASTEXITCODE -ne 0 -or $helpText -notmatch 'rtv-toolkit --check') { throw 'Windows Toolkit CLI smoke failed' }
+          Write-Host "Tested EXE SHA-256: $((Get-FileHash $exe -Algorithm SHA256).Hash)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tested-toolkit-windows-x64
+          path: target/x86_64-pc-windows-msvc/release/rtv-toolkit.exe
+          if-no-files-found: error
+
+  publish:
+    needs: windows-toolkit
+    if: github.repository == 'jtburkh/Sobolyatnik-K'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          name: tested-toolkit-windows-x64
+          path: dist/release
+      - name: Verify unchanged radar; render script with exact tested EXE hash
+        run: |
+          python3 tools/package_radar_lite.py
+          echo '66fd97a4c1487be6688ef94b59ee709a3baa8c7886c490d2f03af7b8c395eefc  dist/probes/RtVRadarLoot.vmz' | sha256sum -c -
+          echo 'fc8b4d38f2373b750bd9457bd3d779a5ce613e541f6643aeffd99634b3f0df72  tools/install-sobolyatnik.ps1' | sha256sum -c -
+          unzip -t dist/probes/RtVRadarLoot.vmz
+          python3 tools/render_bundle_installer.py --toolkit dist/release/rtv-toolkit.exe --output dist/release/setup-sobolyatnik.ps1
+          cp dist/probes/RtVRadarLoot.vmz tools/uninstall-sobolyatnik.ps1 dist/release/
+          sha256sum dist/release/*
+      - name: Publish explicitly tagged experimental prerelease
+        uses: softprops/action-gh-release@v2
+        with:
+          prerelease: true
+          draft: false
+          fail_on_unmatched_files: true
+          name: 'Sobolyatnik-K 0.1.9 Experimental — radar and Windows Toolkit'
+          body: |
+            Experimental bundle for Road to Vostok Steam build 25632875.
+            The in-game radar VMZ is byte-for-byte the tested 0.1.8 release;
+            this bundle adds a Windows x64 Toolkit terminal executable and a
+            safe uninstaller. The source-visible setup script checks SHA-256
+            for the Toolkit, legacy radar installer and uninstall script before
+            execution. Metro 3.2.1 installs only on clean game directories.
+            Uninstall removes only the verified radar and Toolkit; it preserves
+            the shared Metro loader, saves, and rollback archives.
+            Not crash-free or cross-build clearance; no restored AI gunshot hook,
+            sensor/vision, artifact or summon commands.
+          files: |
+            dist/release/RtVRadarLoot.vmz
+            dist/release/rtv-toolkit.exe
+            dist/release/setup-sobolyatnik.ps1
+            dist/release/uninstall-sobolyatnik.ps1

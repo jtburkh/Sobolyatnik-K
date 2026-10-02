@@ -1,13 +1,12 @@
 # Experimental Windows installer
 
-This installer requires the **version-pinned experimental prerelease**. The
-following command will **not work unless both assets are visible** at the
-[`v0.1.8-experimental` release](https://github.com/jtburkh/Sobolyatnik-K/releases/tag/v0.1.8-experimental).
-Do not copy an unversioned `main` branch script and pipe it to
-`iex`/`Invoke-Expression`: that bypasses review of the code you run.
+The [published `v0.1.8-experimental` prerelease](https://github.com/jtburkh/Sobolyatnik-K/releases/tag/v0.1.8-experimental)
+installs the in-game radar and Metro only. It **does not install the terminal
+Toolkit or provide an uninstaller**. A [separate Toolkit bundle](windows-bundle.md)
+is being tested; it does not change this version or its checksum. Do not copy an
+unversioned `main` branch script and pipe it to `iex`/`Invoke-Expression`.
 
-After verifying that `v0.1.8-experimental` is published, paste this **one line
-into PowerShell**:
+With Road to Vostok closed, paste this **one line into PowerShell**:
 
 ```powershell
 $ErrorActionPreference='Stop'; $p=Join-Path $env:TEMP 'sobolyatnik-k-v0.1.8.ps1'; Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.8-experimental/install-sobolyatnik.ps1' -OutFile $p; if ((Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash -ne 'FC8B4D38F2373B750BD9457BD3D779A5CE613E541F6643AEFFD99634B3F0DF72') { throw 'Installer checksum mismatch; nothing was executed' }; & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $p

@@ -12,7 +12,9 @@ $ErrorActionPreference='Stop'; $p=Join-Path $env:TEMP 'sobolyatnik-k-v0.1.8.ps1'
 
 This command checks the installer hash **before running it**. The installer verifies its downloads, installs [official Metro Mod Loader 3.2.1](https://github.com/ametrocavich/vostok-mod-loader/releases/tag/v3.2.1) if neither loader file exists, and installs the [v0.1.8-experimental radar VMZ](https://github.com/jtburkh/Sobolyatnik-K/releases/tag/v0.1.8-experimental). It refuses unsupported builds, conflicting VMZs, and partial or incompatible Metro installations. An older radar VMZ is backed up before replacement. See [installer details and safeguards](docs/windows-installer.md).
 
-**Current installer scope:** It installs the **in-game radar and Metro only**. It does **not** install the separate `rtv-toolkit.exe` terminal application or provide an uninstall command yet. The radar works without the terminal. To remove the radar now, **close the game**, then move `RtVRadarLoot.vmz` out of your Steam game's `mods` folder; leave Metro in place if other mods might use it. The installer does not edit saves or game binaries.
+**Current release (v0.1.8): radar only.** It does **not** install the separate `rtv-toolkit.exe` terminal application or provide an uninstall command. The radar works without the terminal. To remove it, **close the game**, then move `RtVRadarLoot.vmz` out of your Steam game's `mods` folder; leave Metro in place if other mods might use it. The installer does not edit saves or game binaries.
+
+A [new Windows bundle with the Toolkit and an uninstall option](docs/windows-bundle.md) is **being tested, not released**. Don't use a command for it until a separately tagged release and pinned installation instructions are published here; the v0.1.8 release and checksum above will not be changed.
 
 ![Concept illustration of the Sobolyatnik-K radar unit](assets/SOBOLYATNIK-K.png)
 

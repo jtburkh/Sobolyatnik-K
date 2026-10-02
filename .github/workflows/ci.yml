@@ -83,15 +83,47 @@ jobs:
           path: dist/probes/RtVRadarLoot.vmz
           if-no-files-found: error
 
-  installer:
-    needs: quality
+  toolkit-windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+      - name: Build Windows Toolkit executable
+        run: cargo build --locked --release --target x86_64-pc-windows-msvc
+      - name: Test Windows Toolkit and CLI entry point
+        shell: powershell
+        run: |
+          cargo test --locked --target x86_64-pc-windows-msvc
+          if ($LASTEXITCODE -ne 0) { throw 'Windows Rust tests failed' }
+          $exe = 'target/x86_64-pc-windows-msvc/release/rtv-toolkit.exe'
+          $helpText = & $exe --help | Out-String
+          if ($LASTEXITCODE -ne 0 -or $helpText -notmatch 'rtv-toolkit --check') { throw 'Toolkit help smoke failed' }
+          Write-Host "Windows Toolkit SHA-256: $((Get-FileHash $exe -Algorithm SHA256).Hash)"
+      - name: Preserve tested Windows Toolkit binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: rtv-toolkit-windows-x64
+          path: target/x86_64-pc-windows-msvc/release/rtv-toolkit.exe
+          if-no-files-found: error
+
+  installer:
+    needs: [quality, toolkit-windows]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - uses: actions/download-artifact@v4
         with:
           name: pinned-radar-vmz
           path: dist/probes
+      - uses: actions/download-artifact@v4
+        with:
+          name: rtv-toolkit-windows-x64
+          path: dist/windows
       - name: Verify the tested VMZ (do not rebuild with a different zlib)
         shell: powershell
         run: |
@@ -104,6 +136,11 @@ jobs:
           Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/ametrocavich/vostok-mod-loader/releases/download/v3.2.1/override.cfg' -OutFile dist/metro/override.cfg
           if ((Get-FileHash dist/metro/modloader.gd -Algorithm SHA256).Hash -ne '60FCF7FEEC0A47C6472E3B7A190B46987B374618AE3D149C081B222542BC6135') { throw 'Metro script hash mismatch' }
           if ((Get-FileHash dist/metro/override.cfg -Algorithm SHA256).Hash -ne '9750A66FCF0CB1D9BF84284271F52E064F455CDD5A1CDC4981A007E4011A684B') { throw 'Metro override hash mismatch' }
-      - name: Check installer against disposable Steam libraries
+      - name: Check radar-only installer against disposable Steam libraries
         shell: powershell
         run: ./tests/installer/smoke.ps1 -ArchivePath ./dist/probes/RtVRadarLoot.vmz -LoaderSourceDirectory ./dist/metro -TestLoaderDownload
+      - name: Render reviewed bundle template with tested Windows EXE
+        run: python tools/render_bundle_installer.py --toolkit dist/windows/rtv-toolkit.exe --output dist/windows/setup-sobolyatnik.ps1
+      - name: Check complete bundle, Windows entries, and safe uninstall
+        shell: powershell
+        run: ./tests/installer/bundle-smoke.ps1 -ArchivePath ./dist/probes/RtVRadarLoot.vmz -LoaderSourceDirectory ./dist/metro -FakeToolkitPath ./dist/windows/rtv-toolkit.exe -RenderedInstaller ./dist/windows/setup-sobolyatnik.ps1 -TestIntegration -CheckToolkitHelp
