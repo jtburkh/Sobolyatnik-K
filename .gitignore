@@ -1,0 +1,12 @@
+/target
+/dist
+__pycache__/
+*.py[cod]
+*.rtvtmp
+*.rtvbak.*
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
+.beads/proxieddb/

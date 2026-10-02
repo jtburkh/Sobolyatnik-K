@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        components: [rustfmt, clippy]
+
+      - name: Format
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Tests
+        run: cargo test
+
+      - name: Package telemetry bridge
+        run: |
+          python3 tools/package_telemetry_mod.py
+          unzip -t dist/RtVTelemetryProof.vmz
+          unzip -p dist/RtVTelemetryProof.vmz mod.txt | grep -F 'version="0.8.3"'
+          unzip -p dist/RtVTelemetryProof.vmz RtVTelemetryProof/Main.gd | grep -F 'var _diagnostic_profile := "player_only"'
+          unzip -p dist/RtVTelemetryProof.vmz RtVTelemetryProof/Main.gd | grep -F 'TRACE_LIMIT_BYTES := 2 * 1024 * 1024'
+          ! unzip -p dist/RtVTelemetryProof.vmz mod.txt | grep -F 'res://Scripts/AI.gd'
+          unzip -Z1 dist/RtVTelemetryProof.vmz | grep -Fx 'RtVTelemetryProof/CerebralMultiplier.tscn'
+          unzip -Z1 dist/RtVTelemetryProof.vmz | grep -Fx 'RtVTelemetryProof/RadarOverlay.gd'
+
+      - name: Package isolated loader controls (not release assets)
+        run: |
+          python3 tools/package_loader_probes.py
+          unzip -t dist/probes/RtVLoaderBaseline.vmz
+          unzip -t dist/probes/RtVInertAutoload.vmz
+          test "$(unzip -Z1 dist/probes/RtVLoaderBaseline.vmz)" = mod.txt
+          unzip -Z1 dist/probes/RtVInertAutoload.vmz | grep -Fx 'RtVInertProbe.gd'
+
+      - name: Package radar-lite isolation candidate (not a release asset)
+        run: |
+          python3 tools/package_radar_lite.py
+          unzip -t dist/probes/RtVRadarLite.vmz
+          unzip -t dist/probes/RtVRadarContacts.vmz
+          unzip -t dist/probes/RtVRadarInGame.vmz
+          unzip -t dist/probes/RtVRadarControls.vmz
+          unzip -t dist/probes/RtVRadarLoot.vmz
+          unzip -p dist/probes/RtVRadarLite.vmz mod.txt | grep -F 'version="0.1.7"'
+          unzip -p dist/probes/RtVRadarLite.vmz RtVRadarLite.gd | grep -F 'const CONTACTS_DEFAULT := false'
+          unzip -p dist/probes/RtVRadarContacts.vmz RtVRadarLite.gd | grep -F 'const CONTACTS_DEFAULT := true'
+          ! unzip -p dist/probes/RtVRadarLite.vmz RtVRadarLite.gd | grep -F 'func _input'
+          ! unzip -p dist/probes/RtVRadarContacts.vmz RtVRadarLite.gd | grep -F 'func _input'
+          unzip -p dist/probes/RtVRadarInGame.vmz RtVRadarLite.gd | grep -F 'const OVERLAY_DEFAULT := true'
+          unzip -Z1 dist/probes/RtVRadarInGame.vmz | grep -Fx 'RtVRadarLiteOverlay.gd'
+          unzip -p dist/probes/RtVRadarInGame.vmz RtVRadarLiteOverlay.gd | grep -F 'mouse_filter = Control.MOUSE_FILTER_IGNORE'
+          ! unzip -p dist/probes/RtVRadarInGame.vmz RtVRadarLiteOverlay.gd | grep -F 'func _input'
+          unzip -p dist/probes/RtVRadarControls.vmz RtVRadarLite.gd | grep -F 'const CONTROLS_DEFAULT := true'
+          unzip -p dist/probes/RtVRadarControls.vmz RtVRadarLiteOverlay.gd | grep -F 'func cycle_layers()'
+          ! unzip -p dist/probes/RtVRadarControls.vmz RtVRadarLite.gd | grep -F 'func _input'
+          ! unzip -p dist/probes/RtVRadarControls.vmz RtVRadarLiteOverlay.gd | grep -F 'func _input'
+          unzip -p dist/probes/RtVRadarLoot.vmz RtVRadarLite.gd | grep -F 'const LOOT_DEFAULT := true'
+          unzip -p dist/probes/RtVRadarLoot.vmz RtVRadarLite.gd | grep -F 'func _collect_loot('
+          unzip -p dist/probes/RtVRadarLoot.vmz RtVRadarLiteOverlay.gd | grep -F 'func _draw_loot('
+          unzip -p dist/probes/RtVRadarLoot.vmz RtVRadarLiteOverlay.gd | grep -F 'color, false, 1.2)'
+          unzip -p dist/probes/RtVRadarLoot.vmz mod.txt | grep -F 'name="Sobolyatnik-K (Sable Hunter) Experimental — 1L108K"'
+          unzip -p dist/probes/RtVRadarLoot.vmz RtVRadarLiteOverlay.gd | grep -F '"SOBOLYATNIK-K"'
+          ! unzip -p dist/probes/RtVRadarLoot.vmz mod.txt | grep -F 'res://Scripts/AI.gd'
+          ! unzip -p dist/probes/RtVRadarLoot.vmz RtVRadarLiteOverlay.gd | grep -F 'func _input'

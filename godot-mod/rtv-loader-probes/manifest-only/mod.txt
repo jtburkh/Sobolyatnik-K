@@ -1,0 +1,5 @@
+[mod]
+name="RtV Loader Baseline Probe"
+id="rtv_toolkit_probe_manifest"
+version="0.0.1"
+priority=0

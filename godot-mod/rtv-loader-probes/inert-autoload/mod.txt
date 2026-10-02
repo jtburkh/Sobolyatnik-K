@@ -1,0 +1,8 @@
+[mod]
+name="RtV Inert Autoload Probe"
+id="rtv_toolkit_probe_autoload"
+version="0.0.1"
+priority=0
+
+[autoload]
+RtVInertProbe="res://RtVInertProbe.gd"

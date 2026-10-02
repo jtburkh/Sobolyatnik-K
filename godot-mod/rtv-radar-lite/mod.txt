@@ -1,0 +1,8 @@
+[mod]
+name="RtV Radar Lite Test"
+id="rtv_toolkit_radar_lite"
+version="0.1.7"
+priority=0
+
+[autoload]
+RtVRadarLite="res://RtVRadarLite.gd"

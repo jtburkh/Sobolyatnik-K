@@ -1,0 +1,145 @@
+[gd_scene load_steps=15 format=3]
+
+[ext_resource type="Script" path="res://RtVTelemetryProof/CerebralMultiplier.gd" id="1_script"]
+
+[sub_resource type="StandardMaterial3D" id="Steel"]
+albedo_color = Color(0.17, 0.19, 0.12, 1)
+metallic = 0.72
+roughness = 0.68
+
+[sub_resource type="StandardMaterial3D" id="Bakelite"]
+albedo_color = Color(0.105, 0.055, 0.035, 1)
+metallic = 0.18
+roughness = 0.82
+
+[sub_resource type="StandardMaterial3D" id="Amber"]
+albedo_color = Color(0.38, 0.15, 0.015, 1)
+emission_enabled = true
+emission = Color(1, 0.31, 0.025, 1)
+emission_energy_multiplier = 2.2
+roughness = 0.32
+
+[sub_resource type="StandardMaterial3D" id="Cyan"]
+albedo_color = Color(0.015, 0.25, 0.29, 1)
+emission_enabled = true
+emission = Color(0.05, 0.8, 0.9, 1)
+emission_energy_multiplier = 1.8
+roughness = 0.28
+
+[sub_resource type="StandardMaterial3D" id="DarkMetal"]
+albedo_color = Color(0.035, 0.045, 0.045, 1)
+metallic = 0.88
+roughness = 0.5
+
+[sub_resource type="BoxMesh" id="CaseMesh"]
+material = SubResource("Steel")
+size = Vector3(0.42, 0.16, 0.32)
+
+[sub_resource type="BoxMesh" id="PanelMesh"]
+material = SubResource("Bakelite")
+size = Vector3(0.36, 0.025, 0.265)
+
+[sub_resource type="BoxMesh" id="ScreenMesh"]
+material = SubResource("Amber")
+size = Vector3(0.145, 0.018, 0.072)
+
+[sub_resource type="CylinderMesh" id="DialMesh"]
+material = SubResource("DarkMetal")
+top_radius = 0.036
+bottom_radius = 0.042
+height = 0.035
+radial_segments = 16
+
+[sub_resource type="CylinderMesh" id="PortMesh"]
+material = SubResource("Bakelite")
+top_radius = 0.026
+bottom_radius = 0.026
+height = 0.055
+radial_segments = 12
+
+[sub_resource type="SphereMesh" id="LampMesh"]
+material = SubResource("Cyan")
+radius = 0.017
+height = 0.034
+radial_segments = 12
+rings = 6
+
+[sub_resource type="BoxMesh" id="HandleMesh"]
+material = SubResource("DarkMetal")
+size = Vector3(0.035, 0.07, 0.24)
+
+[sub_resource type="BoxShape3D" id="Collision"]
+size = Vector3(0.44, 0.18, 0.34)
+
+[node name="CM7_Cerebral_Multiplier" type="RigidBody3D" groups=["Item"]]
+collision_layer = 4
+collision_mask = 29
+mass = 4.8
+script = ExtResource("1_script")
+
+[node name="Case" type="MeshInstance3D" parent="."]
+mesh = SubResource("CaseMesh")
+
+[node name="TopPanel" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.092, 0)
+mesh = SubResource("PanelMesh")
+
+[node name="AmberDisplay" type="MeshInstance3D" parent="."]
+position = Vector3(-0.075, 0.113, -0.045)
+mesh = SubResource("ScreenMesh")
+
+[node name="DialA" type="MeshInstance3D" parent="."]
+position = Vector3(0.11, 0.122, -0.055)
+mesh = SubResource("DialMesh")
+
+[node name="DialB" type="MeshInstance3D" parent="."]
+position = Vector3(0.145, 0.122, 0.055)
+scale = Vector3(0.72, 0.72, 0.72)
+mesh = SubResource("DialMesh")
+
+[node name="PortA" type="MeshInstance3D" parent="."]
+position = Vector3(-0.085, 0.12, 0.095)
+mesh = SubResource("PortMesh")
+
+[node name="PortB" type="MeshInstance3D" parent="."]
+position = Vector3(-0.015, 0.12, 0.095)
+mesh = SubResource("PortMesh")
+
+[node name="StatusLamp" type="MeshInstance3D" parent="."]
+position = Vector3(0.07, 0.132, 0.09)
+mesh = SubResource("LampMesh")
+
+[node name="HandleLeft" type="MeshInstance3D" parent="."]
+position = Vector3(-0.227, 0.025, 0)
+mesh = SubResource("HandleMesh")
+
+[node name="HandleRight" type="MeshInstance3D" parent="."]
+position = Vector3(0.227, 0.025, 0)
+mesh = SubResource("HandleMesh")
+
+[node name="CM7Label" type="Label3D" parent="."]
+position = Vector3(-0.082, 0.128, 0.015)
+rotation_degrees = Vector3(-90, 0, 0)
+text = "CM-7"
+font_size = 32
+modulate = Color(0.77, 0.72, 0.49, 1)
+outline_size = 3
+
+[node name="CyrillicLabel" type="Label3D" parent="."]
+position = Vector3(0.095, 0.127, 0.005)
+rotation_degrees = Vector3(-90, 0, 0)
+text = "НЕЙРО"
+font_size = 18
+modulate = Color(0.67, 0.62, 0.4, 1)
+outline_size = 2
+
+[node name="Collision" type="CollisionShape3D" parent="."]
+position = Vector3(0, 0.01, 0)
+shape = SubResource("Collision")
+
+[node name="SignalGlow" type="OmniLight3D" parent="."]
+position = Vector3(0.07, 0.22, 0.09)
+light_color = Color(0.1, 0.82, 0.9, 1)
+light_energy = 0.22
+omni_range = 1.4
+shadow_enabled = false

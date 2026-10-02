@@ -1,0 +1,31 @@
+{
+  "steam_build_id": "22914619",
+  "source": "Road to Vostok RTV.pck and Scripts/Database.gd",
+  "registered_resources": 289,
+  "inventory_resources": 248,
+  "furniture_resources": 41,
+  "categories": {
+    "Ammo": 11,
+    "Armor": 5,
+    "Attachments": 42,
+    "Backpacks": 7,
+    "Belts": 4,
+    "Books": 4,
+    "Clothing": 19,
+    "Consumables": 39,
+    "Electronics": 16,
+    "Fishing": 5,
+    "Furniture": 41,
+    "Grenades": 4,
+    "Helmets": 2,
+    "Instruments": 2,
+    "Keys": 6,
+    "Knives": 3,
+    "Lore": 3,
+    "Medical": 22,
+    "Misc": 24,
+    "Rigs": 5,
+    "Weapons": 25
+  },
+  "weapon_stats": 25
+}

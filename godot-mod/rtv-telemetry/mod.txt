@@ -1,0 +1,8 @@
+[mod]
+name="RtV Telemetry Trace Diagnostics"
+id="rtv_toolkit_telemetry"
+version="0.8.3"
+priority=0
+
+[autoload]
+RtVTelemetryProof="res://RtVTelemetryProof/Main.gd"

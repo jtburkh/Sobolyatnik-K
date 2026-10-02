@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="CharacterSave" format=3]
+
+[ext_resource type="Script" path="res://Scripts/SlotData.gd" id="1"]
+[ext_resource type="Script" path="res://Scripts/CharacterSave.gd" id="2"]
+
+[resource]
+script = ExtResource("2")
+health = 100.0
+energy = 100.0
+hydration = 100.0
+mental = 100.0
+inventory = Array[ExtResource("1")]([])
+equipment = Array[ExtResource("1")]([])
+catalog = Array[ExtResource("1")]([])
