@@ -3042,18 +3042,11 @@ fn vision_cone_samples(
 }
 
 fn shot_color(age: Duration) -> Color {
-    let fraction = age.as_secs_f64() / SHOT_LIFETIME.as_secs_f64();
-    if fraction < 0.2 {
-        danger()
-    } else if fraction < 0.4 {
-        Color::Rgb(224, 116, 48)
-    } else if fraction < 0.6 {
-        Color::Yellow
-    } else if fraction < 0.8 {
-        good()
-    } else {
-        accent()
-    }
+    // Terminals have no per-cell alpha. Fade orange toward the scope's dark
+    // background at the same five-second lifetime used by the shot history.
+    let opacity = (1.0 - age.as_secs_f64() / SHOT_LIFETIME.as_secs_f64()).clamp(0.0, 1.0);
+    let blend = |bright: f64, dark: f64| (dark + (bright - dark) * opacity).round() as u8;
+    Color::Rgb(blend(255.0, 3.0), blend(123.0, 7.0), blend(63.0, 11.0))
 }
 
 fn set_radar_cell(
@@ -3327,7 +3320,7 @@ mod ui_tests {
     use super::{
         App, Mode, Panel, RadarMode, background, boss_color, condition_pattern, condition_tiers,
         danger, elevation_indicator, enemy_color, good, item_is_weapon, loot_elevation_indicator,
-        nomad_color, percent, surface, vision_cone_samples, warning,
+        nomad_color, percent, shot_color, surface, vision_cone_samples, warning,
     };
     use crate::catalog::Catalog;
     use crate::telemetry::protocol::{
@@ -3672,6 +3665,17 @@ catalog = Array[ExtResource("2")]([])
         assert_eq!(elevation_indicator(-2.0), Some('↓'));
         assert_eq!(loot_elevation_indicator(1.9), None);
         assert_eq!(loot_elevation_indicator(2.0), Some('↑'));
+    }
+
+    #[test]
+    fn gunshot_marker_fades_smoothly_to_the_scope_background() {
+        use std::time::Duration;
+
+        assert_eq!(shot_color(Duration::ZERO), Color::Rgb(255, 123, 63));
+        let half = shot_color(Duration::from_millis(2500));
+        assert_eq!(half, Color::Rgb(129, 65, 37));
+        assert_eq!(shot_color(Duration::from_secs(5)), background());
+        assert_eq!(shot_color(Duration::from_secs(9)), background());
     }
 
     #[test]

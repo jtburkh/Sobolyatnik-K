@@ -62,7 +62,7 @@ Build 2 AI heading follows the sensor's +Z view axis; its normal 150-degree view
 
 ## Gunshot
 
-Legacy bridges sent one event per actual AI shot. **Build 2 bridges 0.8.0–0.8.3 emit no gunshots:** their AI script hook is intentionally removed because Metro Mod Loader 3.2.1's AI rewrite does not compile on the current game build. The receiver still accepts older gunshot packets and retains them for five seconds. Legacy packet shape:
+Legacy bridges sent one event per actual AI shot. **The released Build 2 radar emits no gunshots:** its AI script hook is intentionally removed because Metro Mod Loader 3.2.1's AI rewrite does not compile on the current game build. The receiver still accepts older gunshot packets and retains them for five seconds. A separate, uninstalled [AI shot observer candidate](ai-shot-observer.md) sends the same packet with an optional `map_id`. A controlled Build 2 session with a disposable save confirmed the corrected candidate mode and its fading markers; broad gameplay stability remains unverified. Legacy packet shape:
 
 ```json
 {
@@ -74,7 +74,7 @@ Legacy bridges sent one event per actual AI shot. **Build 2 bridges 0.8.0–0.8.
 }
 ```
 
-The Rust state retains a shot for five seconds.
+The Rust state retains a shot for five seconds, fading the marker to the scope background. The candidate includes `"map_id": "res://Scenes/Village.tscn"`; packets scoped to a different map are discarded and markers clear on scene change. Older packets without `map_id` remain accepted.
 
 ## Compatibility and failure behavior
 

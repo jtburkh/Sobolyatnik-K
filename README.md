@@ -26,7 +26,13 @@ The compact, dark tactical HUD shows **red enemies**, **blue Nomads**, short mov
 
 *Actual in-game screenshot, not the concept illustration above; the radar appears in the upper-right corner.*
 
-This is an **experimental Build 2** mod, not a promise of crash-free play. Gunshot telemetry, AI sensor/vision reads, the old artifact, and summon commands are **not** part of this playable radar. Do not install the diagnostic bridge alongside it. See [stability and feature limitations](docs/telemetry-diagnostics.md).
+This is an **experimental Build 2** mod, not a promise of crash-free play. Gunshot telemetry, AI sensor/vision reads, the old artifact, and summon commands are **not** part of the **released** playable radar. Do not install the diagnostic bridge alongside it. See [stability and feature limitations](docs/telemetry-diagnostics.md).
+
+### Shot Alerts preview — source only, not in the installer above
+
+An **unreleased** candidate makes **Shot Alerts** the first, visible radar mode: it shows only human-AI gunshots (enemies, Nomads and bosses) within 100 m as markers that fade over five seconds. The radar stays on screen between shots. `F7` then cycles through the existing All + Shots, AI Only, Trails Only and Loot Only views; `F8` hides/shows the radar. Player and vehicle shots are not included. The source-built Windows Toolkit also fades received shot markers.
+
+A disposable-save, owner-driven Build 2 session confirmed the corrected mode works as designed and recorded 23 candidate shot packets. This is **not** broad combat/crash clearance. **The v0.1.11 installer and VMZ above do not include Shot Alerts; no new release has been published.** See the [isolated candidate, tests and limitations](docs/ai-shot-observer.md). Do not install its candidate VMZ beside the released radar.
 
 ## Toolkit: manage your character offline
 
@@ -69,7 +75,7 @@ The terminal also has a live Radar tab (`4`) when telemetry is configured, but i
 
 ## Develop and verify
 
-To package the five isolated radar variants from source, install Python 3 and run `python3 tools/package_radar_lite.py`. Only `dist/probes/RtVRadarLoot.vmz` is the playable radar; the other VMZs are diagnostic variants, not additional mods to install together. The [runtime research](docs/runtime-discovery.md) and [third-party notices](THIRD_PARTY_NOTICES.md) provide further context. Neither private saves, dumps, game binaries, nor local builds are in this repository.
+To package the five isolated radar-lite variants from source, install Python 3 and run `python3 tools/package_radar_lite.py`. Only `dist/probes/RtVRadarLoot.vmz` matches the **released** playable radar; the other VMZs are diagnostic variants, not additional mods to install together. The separate Shot Alerts source candidate can be built with `python3 tools/package_radar_shots.py` and checked without the game using `python3 tools/test_radar_shots.py --engine /path/to/godot`; it is **not a release asset or a second mod to install alongside the published radar**. The [runtime research](docs/runtime-discovery.md) and [third-party notices](THIRD_PARTY_NOTICES.md) provide further context. Neither private saves, dumps, game binaries, nor local builds are in this repository.
 
 ```bash
 cargo fmt --all -- --check

@@ -78,6 +78,8 @@ pub struct Gunshot {
     pub timestamp_ms: u64,
     pub shooter_id: u64,
     pub position: [f64; 3],
+    #[serde(default)]
+    pub map_id: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -194,6 +196,21 @@ mod tests {
         assert!(!snapshot.ai[0].boss);
         assert!(snapshot.ai[0].faction.is_empty());
         assert!(!snapshot.ai[0].friendly);
+    }
+
+    #[test]
+    fn accepts_scene_ids_on_gunshots_without_requiring_them_on_legacy_packets() {
+        let legacy =
+            br#"{"version":1,"type":"gunshot","timestamp_ms":1,"shooter_id":2,"position":[1,0,2]}"#;
+        let TelemetryMessage::Gunshot(old) = JsonDecoder.decode(legacy).unwrap() else {
+            panic!("expected gunshot");
+        };
+        assert!(old.map_id.is_empty());
+        let scoped = br#"{"version":1,"type":"gunshot","timestamp_ms":1,"shooter_id":2,"position":[1,0,2],"map_id":"res://Scenes/Village.tscn"}"#;
+        let TelemetryMessage::Gunshot(new) = JsonDecoder.decode(scoped).unwrap() else {
+            panic!("expected gunshot");
+        };
+        assert_eq!(new.map_id, "res://Scenes/Village.tscn");
     }
 
     #[test]

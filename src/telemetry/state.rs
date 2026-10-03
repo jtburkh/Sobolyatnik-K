@@ -144,6 +144,9 @@ impl TelemetryState {
     fn update_map(&mut self, map: MapSnapshot) {
         let id = map.id.trim().to_owned();
         let name = map.name.trim().to_owned();
+        if self.current_map.as_ref().is_some_and(|old| old.id != id) {
+            self.shot_events.clear();
+        }
         if id.is_empty() && name.is_empty() {
             self.current_map = None;
             return;
@@ -241,6 +244,17 @@ impl TelemetryState {
     }
 
     fn add_shot(&mut self, event: Gunshot, received_at: Instant) {
+        // Discard late packets from the previous scene rather than placing
+        // their world-space markers on a different map. Old senders lacking
+        // map_id keep their original five-second behavior.
+        if !event.map_id.is_empty()
+            && self
+                .current_map
+                .as_ref()
+                .is_none_or(|map| map.id != event.map_id)
+        {
+            return;
+        }
         self.shot_events.push(ShotEvent {
             shooter_id: event.shooter_id,
             position: event.position,
@@ -381,11 +395,43 @@ mod tests {
                 timestamp_ms: 20,
                 shooter_id: 7,
                 position: [12.0, 3.0, -8.0],
+                map_id: String::new(),
             }),
             start,
         );
         assert_eq!(state.shot_events[0].position, [12.0, 3.0, -8.0]);
         state.prune(start + SHOT_LIFETIME + Duration::from_millis(1));
+        assert!(state.shot_events.is_empty());
+    }
+
+    #[test]
+    fn clears_shots_when_the_map_changes_and_rejects_late_packets() {
+        let start = Instant::now();
+        let mut state = TelemetryState::default();
+        state.apply(snapshot(Vec::new()), start);
+        let shot = Gunshot {
+            version: 1,
+            timestamp_ms: 20,
+            shooter_id: 7,
+            position: [12.0, 3.0, -8.0],
+            map_id: "res://Scenes/Village.tscn".to_owned(),
+        };
+        state.apply(TelemetryMessage::Gunshot(shot.clone()), start);
+        assert_eq!(state.shot_events.len(), 1);
+        let TelemetryMessage::Snapshot(mut next) = snapshot(Vec::new()) else {
+            unreachable!();
+        };
+        next.map.id = "res://Scenes/NewMap.tscn".to_owned();
+        next.map.name = "New Map".to_owned();
+        state.apply(
+            TelemetryMessage::Snapshot(next),
+            start + Duration::from_millis(200),
+        );
+        assert!(state.shot_events.is_empty());
+        state.apply(
+            TelemetryMessage::Gunshot(shot),
+            start + Duration::from_millis(201),
+        );
         assert!(state.shot_events.is_empty());
     }
 
