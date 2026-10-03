@@ -38,9 +38,9 @@ cargo build --release
 .\target\release\rtv-toolkit.exe --check
 ```
 
-By default it looks for `Character.tres`; use `--save <path-to-Character.tres>` to choose another save. The item catalog was derived from an **earlier game build** and still needs Build 2 verification; unknown item footprints are rejected rather than guessed. Avoid `--spawn-*` commands with the current radar bridge. Run `rtv-toolkit.exe --help` for CLI options.
+By default it looks for `Character.tres`; use `--save <path-to-Character.tres>` to choose another save. The **published v0.1.9 executable still contains the older-build catalog**. Source on `main` now includes [Build 2's derived inventory catalog](docs/catalog-sync.md) (263 items), but those new entries require a newly built Toolkit or a future versioned release; they are **not yet in the downloadable `.exe`**. Unknown item footprints are rejected rather than guessed. Avoid `--spawn-*` commands with the current radar bridge. Run `rtv-toolkit.exe --help` for CLI options.
 
-The terminal also has a live Radar tab (`4`) when telemetry is configured, but it is **not required** for the in-game HUD. See [telemetry configuration](docs/telemetry-installation.md) and the [protocol](docs/telemetry-protocol.md) for advanced Windows/WSL setups; do not expose the unauthenticated UDP listener outside a trusted machine.
+The terminal also has a live Radar tab (`4`) when telemetry is configured, but it is **not required** for the in-game HUD. Current source colors live enemy, Nomad, and boss contacts to match the in-game mod; the v0.1.9 `.exe` predates this correction. See [telemetry configuration](docs/telemetry-installation.md) and the [protocol](docs/telemetry-protocol.md) for advanced Windows/WSL setups; do not expose the unauthenticated UDP listener outside a trusted machine.
 
 ## Develop and verify
 

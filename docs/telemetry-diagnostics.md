@@ -188,13 +188,14 @@ the optional overlay. Empty AI/loot arrays in isolated profiles are expected.
    sensor scans and game-state-writing CM-7/summons; do not reenable the AI
    hook for gunshots while Metro's Build 2 rewrite does not compile.
 
-**Toolkit Nomad colors:** current `src/app.rs` already renders live Nomads
-light blue in both the terminal radar and contact list. The user's running
-`target/release/rtv-toolkit` was built before that code (September 6). A fresh
-standalone preview is at `dist/preview/rtv-toolkit-nomad-blue`; restart the
-terminal app with `--telemetry-bind <WSL IPv4 address>:47777` to load it. Do not
-replace or kill an active TUI without owner permission, and re-check the WSL
-IP after a restart.
+**Toolkit contact colors:** current source renders live enemies red, Nomads
+light blue regardless of reputation, and bosses pink in both the terminal
+radar and contact list, matching `RtVRadarLiteOverlay.gd`. The published
+v0.1.9 `.exe` predates the enemy/boss color correction (and Build 2 catalog);
+the old September `dist/preview/rtv-toolkit-nomad-blue` is also not a current
+build. Build the Toolkit from source or wait for a new versioned release. Do
+not replace or kill an active TUI without owner permission, and re-check the
+WSL IP after a restart if using `--telemetry-bind <WSL IPv4 address>:47777`.
 
 The game itself may autosave during tests; use a disposable or backed-up game
 session if that matters. Source checks and synthetic tests cannot establish

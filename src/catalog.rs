@@ -113,3 +113,67 @@ impl Catalog {
             .collect()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{Catalog, WeaponStatsBook};
+
+    #[test]
+    fn build_two_items_are_searchable_with_game_footprints() {
+        let catalog = Catalog::load().unwrap();
+        assert_eq!(catalog.items().len(), 263);
+        let kantamus = catalog
+            .get("res://Items/Backpacks/Backpack_Kantamus/Backpack_Kantamus.tres")
+            .unwrap();
+        assert_eq!(
+            (kantamus.name.as_str(), kantamus.size(false)),
+            ("Kantamus Backpack", (4, 5))
+        );
+        assert_eq!(
+            catalog
+                .get("res://Items/Electronics/VIRVE/VIRVE.tres")
+                .unwrap()
+                .size(false),
+            (1, 2)
+        );
+        assert!(
+            catalog
+                .filtered_indices("tactical watch")
+                .iter()
+                .any(|&index| { catalog.items()[index].id == "Watch_Tactical" })
+        );
+        assert!(
+            catalog
+                .filtered_indices("JATIMATIC")
+                .iter()
+                .any(|&index| { catalog.items()[index].id == "Jatimatic" })
+        );
+        assert_eq!(
+            catalog
+                .get("res://Items/Weapons/Jatimatic/Jatimatic_Magazine.tres")
+                .unwrap()
+                .size(false),
+            (1, 2)
+        );
+    }
+
+    #[test]
+    fn build_two_catalog_preserves_known_save_paths_and_weapon_stats() {
+        let catalog = Catalog::load().unwrap();
+        for path in [
+            "res://Items/Medical/Bandage/Bandage.tres",
+            "res://Items/Weapons/Colt_1911/Colt_1911.tres",
+            "res://Items/Consumables/Can_Empty/Can_Empty.tres",
+        ] {
+            assert!(
+                catalog.get(path).is_some(),
+                "missing save-compatible path: {path}"
+            );
+        }
+        let book = WeaponStatsBook::load().unwrap();
+        assert_eq!(book.stats.len(), 29);
+        let m28 = book.get("res://Items/Weapons/M28/M28.tres").unwrap();
+        assert_eq!(m28.magazine_size, Some(5.0));
+        assert_eq!(m28.damage, Some(50.0));
+    }
+}

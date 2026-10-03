@@ -27,6 +27,9 @@ jobs:
       - name: Tests
         run: cargo test
 
+      - name: Check Build 2 catalog consistency
+        run: python3 -m unittest discover -s tests/catalog -p 'test_*.py'
+
       - name: Package telemetry bridge
         run: |
           python3 tools/package_telemetry_mod.py

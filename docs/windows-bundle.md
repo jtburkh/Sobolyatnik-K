@@ -30,8 +30,10 @@ system execution policy.
   radar layers; `F8` hides drawing without stopping telemetry.
 - The Toolkit can inspect and edit your character's equipment and inventory
   **while Road to Vostok is closed**. It keeps a timestamped save backup before
-  replacing a save. Its item catalog is still derived from an older game build,
-  so keep your own backup; avoid the historical `--spawn-*` commands.
+  replacing a save. **This v0.1.9 executable still contains the older-build
+  item catalog.** New Build 2 [catalog metadata](catalog-sync.md) is on `main`
+  but needs a *new* Windows executable release; keep your own save backup and
+  avoid the historical `--spawn-*` commands.
 - Setup can adopt the exact previously installed v0.1.8 VMZ without rewriting
   Metro's live `override.cfg`. It refuses different Metro versions, changed
   loader scripts, partial loader installations, other installed VMZs, ambiguous

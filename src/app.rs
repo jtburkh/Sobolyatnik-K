@@ -26,7 +26,7 @@ use crate::{
         protocol::{DEFAULT_BIND_ADDRESS, JsonDecoder},
         radar::{RadarMode, contact_cell, project_contact},
         receiver::{ReceiverEvent, TelemetryReceiver},
-        state::{ConnectionStatus, SHOT_LIFETIME, TelemetryState},
+        state::{ConnectionStatus, SHOT_LIFETIME, TelemetryState, TrackedAi},
     },
     tres::{
         CharacterDocument, EquipmentItem, EquipmentSlot, InventoryItem, WorldState,
@@ -1368,15 +1368,7 @@ impl App {
                                 '×'
                             },
                             Style::default()
-                                .fg(if entity.boss {
-                                    boss_color()
-                                } else if entity.faction == "Nomad" && entity.alive {
-                                    nomad_color()
-                                } else if entity.alive {
-                                    warning()
-                                } else {
-                                    muted()
-                                })
+                                .fg(ai_contact_color(entity))
                                 .add_modifier(Modifier::BOLD),
                         );
                         if self.advanced_overlays
@@ -1597,15 +1589,7 @@ impl App {
                             elevation,
                             map_suffix
                         ),
-                        Style::default().fg(if entity.boss {
-                            boss_color()
-                        } else if entity.faction == "Nomad" && entity.alive {
-                            nomad_color()
-                        } else if entity.alive {
-                            warning()
-                        } else {
-                            muted()
-                        }),
+                        Style::default().fg(ai_contact_color(entity)),
                     ));
                 }
             } else {
@@ -2968,12 +2952,29 @@ fn connection_color(status: ConnectionStatus) -> Color {
     }
 }
 
+// Contact colors match RtVRadarLiteOverlay.gd (Godot RGB floats, rounded to 8-bit).
+fn enemy_color() -> Color {
+    Color::Rgb(242, 77, 61) // Color(0.95, 0.3, 0.24)
+}
+
 fn boss_color() -> Color {
-    Color::Rgb(220, 72, 220)
+    Color::Rgb(255, 51, 184) // Color(1.0, 0.20, 0.72)
 }
 
 fn nomad_color() -> Color {
-    Color::Rgb(122, 207, 245)
+    Color::Rgb(122, 207, 245) // Color(0.48, 0.81, 0.96)
+}
+
+fn ai_contact_color(entity: &TrackedAi) -> Color {
+    if entity.boss {
+        boss_color()
+    } else if entity.faction == "Nomad" && entity.alive {
+        nomad_color()
+    } else if entity.alive {
+        enemy_color()
+    } else {
+        muted()
+    }
 }
 
 fn elevation_indicator(delta: f64) -> Option<char> {
@@ -3324,9 +3325,9 @@ fn centered_fixed(width: u16, height: u16, area: Rect) -> Rect {
 #[cfg(test)]
 mod ui_tests {
     use super::{
-        App, Mode, Panel, RadarMode, background, condition_pattern, condition_tiers, danger,
-        elevation_indicator, good, item_is_weapon, loot_elevation_indicator, nomad_color, percent,
-        surface, vision_cone_samples, warning,
+        App, Mode, Panel, RadarMode, background, boss_color, condition_pattern, condition_tiers,
+        danger, elevation_indicator, enemy_color, good, item_is_weapon, loot_elevation_indicator,
+        nomad_color, percent, surface, vision_cone_samples, warning,
     };
     use crate::catalog::Catalog;
     use crate::telemetry::protocol::{
@@ -3514,18 +3515,21 @@ catalog = Array[ExtResource("2")]([])
         assert!(rendered.contains("◆ #0021"));
         assert!(rendered.contains("◆ #0022"));
         assert!(rendered.contains("NOMAD"));
-        // Both friendly and hostile Nomads share the standard AI glyph and
-        // light-blue tint; only LOS/cone colors communicate a live threat.
-        assert_eq!(nomad_color(), Color::Rgb(122, 207, 245));
+        // Enemy red and both friendly and hostile Nomad blue match the game HUD.
+        // LOS/cone colors still communicate a live threat independently.
         let buffer = terminal.backend().buffer();
-        for label in ["#0021", "#0022"] {
+        for (label, expected_color) in [
+            ("#0020", enemy_color()),
+            ("#0021", nomad_color()),
+            ("#0022", nomad_color()),
+        ] {
             let marker_color = buffer.content().chunks(120).find_map(|row| {
                 let index = row.windows(5).position(|cells| {
                     cells.iter().map(|cell| cell.symbol()).collect::<String>() == label
                 })?;
                 row.get(index.checked_sub(2)?).map(|cell| cell.fg)
             });
-            assert_eq!(marker_color, Some(nomad_color()), "{label}");
+            assert_eq!(marker_color, Some(expected_color), "{label}");
         }
         assert!(rendered.contains("Boss"));
         app.handle_key(KeyEvent::new(KeyCode::Char('b'), KeyModifiers::NONE))
@@ -3534,6 +3538,17 @@ catalog = Array[ExtResource("2")]([])
         app.handle_key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::NONE))
             .unwrap();
         assert!(matches!(app.mode, Mode::Normal));
+    }
+
+    #[test]
+    fn ai_contact_palette_matches_in_game_mod_source() {
+        let overlay = include_str!("../godot-mod/rtv-radar-lite/RtVRadarLiteOverlay.gd");
+        assert!(overlay.contains("const NOMAD := Color(0.48, 0.81, 0.96, 1.0)"));
+        assert!(overlay.contains("return Color(0.95, 0.3, 0.24)"));
+        assert!(overlay.contains("return Color(1.0, 0.20, 0.72)"));
+        assert_eq!(nomad_color(), Color::Rgb(122, 207, 245));
+        assert_eq!(enemy_color(), Color::Rgb(242, 77, 61));
+        assert_eq!(boss_color(), Color::Rgb(255, 51, 184));
     }
 
     #[test]
@@ -3610,6 +3625,18 @@ catalog = Array[ExtResource("2")]([])
         assert!(rendered.contains("OVERLAYS  ON"));
         assert!(rendered.contains("MAP OUTPOST"));
         assert!(rendered.contains("BOSS ↑5m @ OUTPOST"));
+        let boss_label_color = terminal
+            .backend()
+            .buffer()
+            .content()
+            .chunks(160)
+            .find_map(|row| {
+                let index = row.windows(5).position(|cells| {
+                    cells.iter().map(|cell| cell.symbol()).collect::<String>() == "#0099"
+                })?;
+                row.get(index.checked_sub(2)?).map(|cell| cell.fg)
+            });
+        assert_eq!(boss_label_color, Some(boss_color()));
         assert!(rendered.contains("LOOT CONTAINERS  1"));
         assert!(rendered.contains("Military Cra"));
         assert!(rendered.contains("Airdrop"));
