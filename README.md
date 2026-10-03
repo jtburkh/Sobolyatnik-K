@@ -22,11 +22,19 @@ The command checks the setup script's SHA-256 **before running it**. The script 
 
 The compact, dark tactical HUD shows **red enemies**, **blue Nomads**, short movement trails, and small **hollow loot markers**. `F7` cycles radar layers; `F8` hides or shows the drawing without stopping telemetry. The radar is independent of equipped inventory items and does not modify your character save.
 
+![Actual Road to Vostok gameplay in Village, with the Sobolyatnik-K radar HUD in the upper-right corner](assets/screenshots/in-game-village.webp)
+
+*Actual in-game screenshot, not the concept illustration above; the radar appears in the upper-right corner.*
+
 This is an **experimental Build 2** mod, not a promise of crash-free play. Gunshot telemetry, AI sensor/vision reads, the old artifact, and summon commands are **not** part of this playable radar. Do not install the diagnostic bridge alongside it. See [stability and feature limitations](docs/telemetry-diagnostics.md).
 
 ## Toolkit: manage your character offline
 
 The companion `rtv-toolkit` terminal program can inspect and edit character inventory and equipment, validate item placement, and check a save without opening its UI. **Close Road to Vostok before editing a save.** Before replacing a save, it checks for external changes and keeps a timestamped `.rtvbak.*` backup. Keep your own backup of important saves too.
+
+![Toolkit Character pane showing the character schematic, vitals and selected weapon details; personal save path redacted](assets/screenshots/toolkit-character.png)
+
+*Character view from a real session; the personal save path is redacted.*
 
 The Windows Toolkit executable is included in the installer above and can be opened from **Start → Sobolyatnik-K → Sobolyatnik-K Toolkit**. For a source build instead, [install Rust](https://rustup.rs/) and Git:
 
@@ -41,6 +49,23 @@ cargo build --release
 By default it looks for `Character.tres`; use `--save <path-to-Character.tres>` to choose another save. The **v0.1.11 executable includes [Build 2's derived inventory catalog](docs/catalog-sync.md)** (263 items, including 15 newly registered ones). The earlier v0.1.9 executable does not; install the new version to use those entries. Unknown item footprints are rejected rather than guessed. In-game slot behavior for every new item still needs a spot-check on a disposable save. Avoid `--spawn-*` commands with the current radar bridge. Run `rtv-toolkit.exe --help` for CLI options.
 
 The terminal also has a live Radar tab (`4`) when telemetry is configured, but it is **not required** for the in-game HUD. The v0.1.11 Toolkit colors live enemy, Nomad, and boss contacts to match the in-game mod. See [telemetry configuration](docs/telemetry-installation.md) and the [protocol](docs/telemetry-protocol.md) for advanced Windows/WSL setups; do not expose the unauthenticated UDP listener outside a trusted machine.
+
+<details>
+<summary>See the Equipment, Inventory and live Radar panes</summary>
+
+**Equipment:** inspect slots, weapon stats, attachments, condition and ammo.
+
+![Toolkit Equipment pane showing item slots and weapon details; personal save path redacted](assets/screenshots/toolkit-equipment.png)
+
+**Inventory:** view the grid, item details and stored condition.
+
+![Toolkit Inventory pane showing items and the placement grid; personal save path redacted](assets/screenshots/toolkit-inventory.png)
+
+**Radar:** example of live UDP telemetry alongside the in-game HUD. `LIVE` requires a running game with a matching local UDP address; gunshot readings are unavailable in this experimental build. The personal save path is redacted in all Toolkit screenshots.
+
+![Toolkit Radar pane showing enemy and Nomad contacts and nearby loot; personal save path redacted](assets/screenshots/toolkit-radar.png)
+
+</details>
 
 ## Develop and verify
 
