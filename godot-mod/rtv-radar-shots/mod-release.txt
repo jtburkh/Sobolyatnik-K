@@ -1,0 +1,8 @@
+[mod]
+name="Sobolyatnik-K (Shot Alerts) Experimental — 1L108K"
+id="rtv_toolkit_radar_loot"
+version="0.1.12"
+priority=0
+
+[autoload]
+RtVRadarLite="res://RtVRadarShotBridge.gd"

@@ -90,11 +90,36 @@ jobs:
           ! unzip -p dist/probes/RtVRadarShotsCandidate.vmz RtVRadarShotBridge.gd | grep -F '.hook('
           ! unzip -p dist/probes/RtVRadarShotsCandidate.vmz mod.txt | grep -F 'res://Scripts/AI.gd'
           echo '66fd97a4c1487be6688ef94b59ee709a3baa8c7886c490d2f03af7b8c395eefc  dist/probes/RtVRadarLoot.vmz' | sha256sum -c -
+      - name: Package the separately versioned Shot Alerts release bytes
+        run: |
+          python3 tools/package_radar_shots_release.py
+          echo '6d2d06e55831f174483595d44fde6ba5c3a50f7fec183d2c66a5953ecb98efdd  dist/probes/RtVRadarShotsRelease.vmz' | sha256sum -c -
+          echo 'cf66879c05c3a8404458e24b1e75f6943895c604a497398551db8535ba01c39d  tools/install-sobolyatnik-v0.1.12.ps1' | sha256sum -c -
+          echo '9a0620b45a1c62395c2cf3dc897efcd30f9600a517e8922a648e1257cadcb877  tools/uninstall-sobolyatnik-v0.1.12.ps1' | sha256sum -c -
+          unzip -t dist/probes/RtVRadarShotsRelease.vmz
+          unzip -p dist/probes/RtVRadarShotsRelease.vmz mod.txt | grep -F 'version="0.1.12"'
+          unzip -p dist/probes/RtVRadarShotsRelease.vmz mod.txt | grep -F 'id="rtv_toolkit_radar_loot"'
+          unzip -p dist/probes/RtVRadarShotsRelease.vmz RtVRadarLiteOverlay.gd | grep -F 'var _layer_mode := 0 # Default Shot Alerts'
+          ! unzip -p dist/probes/RtVRadarShotsRelease.vmz RtVRadarShotBridge.gd | grep -F '.hook('
       - name: Share exact verified VMZ with Windows fixture tests
         uses: actions/upload-artifact@v4
         with:
           name: pinned-radar-vmz
           path: dist/probes/RtVRadarLoot.vmz
+          if-no-files-found: error
+      - name: Share exact versioned release VMZ with Windows fixture tests
+        uses: actions/upload-artifact@v4
+        with:
+          name: shot-alerts-release-vmz
+          path: dist/probes/RtVRadarShotsRelease.vmz
+          if-no-files-found: error
+      - name: Share exact LF-versioned PowerShell scripts with Windows fixture tests
+        uses: actions/upload-artifact@v4
+        with:
+          name: shot-alerts-installer-scripts
+          path: |
+            tools/install-sobolyatnik-v0.1.12.ps1
+            tools/uninstall-sobolyatnik-v0.1.12.ps1
           if-no-files-found: error
 
   toolkit-windows:
@@ -134,6 +159,14 @@ jobs:
         with:
           name: pinned-radar-vmz
           path: dist/probes
+      - uses: actions/download-artifact@v4
+        with:
+          name: shot-alerts-release-vmz
+          path: dist/shot-alerts
+      - uses: actions/download-artifact@v4
+        with:
+          name: shot-alerts-installer-scripts
+          path: dist/shot-alerts
       - uses: actions/download-artifact@v4
         with:
           name: rtv-toolkit-windows-x64
@@ -182,3 +215,25 @@ jobs:
           python tools/render_bundle_installer.py --toolkit dist/windows/rtv-toolkit.exe --template tools/setup-sobolyatnik-v0.1.11.ps1.in --uninstaller tools/uninstall-sobolyatnik-v0.1.11.ps1 --output dist/windows/setup-sobolyatnik-v0.1.11.ps1
           if ($LASTEXITCODE -ne 0) { throw 'Unable to render Build 2 installer' }
           ./tests/installer/bundle-smoke.ps1 -ArchivePath ./dist/probes/RtVRadarLoot.vmz -LoaderSourceDirectory ./dist/metro -FakeToolkitPath ./dist/windows/rtv-toolkit.exe -RenderedInstaller ./dist/windows/setup-sobolyatnik-v0.1.11.ps1 -RadarInstallerPath ./dist/windows/install-sobolyatnik-v0.1.8.ps1 -UninstallerPath ./tools/uninstall-sobolyatnik-v0.1.11.ps1 -PreviousBundleInstallerPath ./dist/windows/setup-sobolyatnik-v0.1.9.ps1 -PreviousBundleToolkitPath ./dist/windows/rtv-toolkit-v0.1.9.exe -PreviousBundleUninstallerPath ./dist/windows/uninstall-sobolyatnik-v0.1.9.ps1 -TestIntegration -CheckToolkitHelp
+      - name: Obtain pinned published v0.1.11 bundle for Shot Alerts migration fixture
+        shell: powershell
+        run: |
+          $assets = @(
+            @{ Name = 'setup-sobolyatnik-v0.1.11-published.ps1'; Hash = 'A2CBBFA5AA1D6CCC6DA9B664CAD29ECD9A0B1BC4FDA6054E29FDF4BE13E98388'; Remote = 'setup-sobolyatnik.ps1' },
+            @{ Name = 'uninstall-sobolyatnik-v0.1.11-published.ps1'; Hash = '27088ABFC7D10040BF624FD79B47CA99DD7A7D2B0EB7C33310E91D41A044209D'; Remote = 'uninstall-sobolyatnik.ps1' },
+            @{ Name = 'rtv-toolkit-v0.1.11-published.exe'; Hash = 'C0D0D08528465D574666F3956A41D3AE7F17B810679BB9AE5F48DFF8F2C732A3'; Remote = 'rtv-toolkit.exe' }
+          )
+          foreach ($asset in $assets) {
+            $path = Join-Path dist/windows $asset.Name
+            Invoke-WebRequest -UseBasicParsing -Uri ('https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.11-experimental/' + $asset.Remote) -OutFile $path
+            if ((Get-FileHash $path -Algorithm SHA256).Hash -ine $asset.Hash) { throw "Published v0.1.11 asset hash mismatch: $($asset.Name)" }
+          }
+      - name: Check exact new Shot Alerts radar installer in disposable Steam fixture
+        shell: powershell
+        run: ./tests/installer/smoke.ps1 -InstallerPath ./dist/shot-alerts/install-sobolyatnik-v0.1.12.ps1 -ArchivePath ./dist/shot-alerts/RtVRadarShotsRelease.vmz -LoaderSourceDirectory ./dist/metro -ExpectedRadarHash 6D2D06E55831F174483595D44FDE6BA5C3A50F7FEC183D2C66A5953ECB98EFDD
+      - name: Render and check versioned Shot Alerts bundle and v0.1.11 migration
+        shell: powershell
+        run: |
+          python tools/render_bundle_installer.py --toolkit dist/windows/rtv-toolkit.exe --template tools/setup-sobolyatnik-v0.1.12.ps1.in --uninstaller dist/shot-alerts/uninstall-sobolyatnik-v0.1.12.ps1 --output dist/windows/setup-sobolyatnik-v0.1.12.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to render Shot Alerts installer' }
+          ./tests/installer/bundle-smoke.ps1 -ArchivePath ./dist/shot-alerts/RtVRadarShotsRelease.vmz -LoaderSourceDirectory ./dist/metro -FakeToolkitPath ./dist/windows/rtv-toolkit.exe -RenderedInstaller ./dist/windows/setup-sobolyatnik-v0.1.12.ps1 -RadarInstallerPath ./dist/shot-alerts/install-sobolyatnik-v0.1.12.ps1 -UninstallerPath ./dist/shot-alerts/uninstall-sobolyatnik-v0.1.12.ps1 -PreviousBundleInstallerPath ./dist/windows/setup-sobolyatnik-v0.1.11-published.ps1 -PreviousBundleToolkitPath ./dist/windows/rtv-toolkit-v0.1.11-published.exe -PreviousBundleUninstallerPath ./dist/windows/uninstall-sobolyatnik-v0.1.11-published.ps1 -PreviousBundleRadarInstallerPath ./dist/windows/install-sobolyatnik-v0.1.8.ps1 -PreviousBundleArchivePath ./dist/probes/RtVRadarLoot.vmz -PreviousBundleVersion 0.1.11-experimental -ExpectedBundleVersion 0.1.12-experimental -ExpectedRadarHash 6D2D06E55831F174483595D44FDE6BA5C3A50F7FEC183D2C66A5953ECB98EFDD -TestIntegration -CheckToolkitHelp

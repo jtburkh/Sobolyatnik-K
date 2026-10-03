@@ -10,20 +10,28 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+from zipfile import ZipFile
 
 from package_radar_shots import ROOT, SOURCE, enabled_base
+from package_radar_shots_release import OUTPUT as RELEASE_ARCHIVE
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--engine", required=True, type=Path)
+    parser.add_argument("--release-archive", action="store_true", help="exercise the actual versioned VMZ payload")
     args = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix="rtv-radar-shots-mock-") as work:
         project = Path(work)
         (project / "project.godot").write_text('[application]\nconfig/name="AI Shot Observer Mock"\n')
-        (project / "RtVRadarLite.gd").write_text(enabled_base())
-        shutil.copyfile(SOURCE / "RtVRadarShotBridge.gd", project / "RtVRadarShotBridge.gd")
-        shutil.copyfile(SOURCE / "RtVRadarLiteOverlay.gd", project / "RtVRadarLiteOverlay.gd")
+        if args.release_archive:
+            with ZipFile(RELEASE_ARCHIVE) as archive:
+                for name in ("RtVRadarLite.gd", "RtVRadarShotBridge.gd", "RtVRadarLiteOverlay.gd"):
+                    (project / name).write_bytes(archive.read(name))
+        else:
+            (project / "RtVRadarLite.gd").write_text(enabled_base())
+            shutil.copyfile(SOURCE / "RtVRadarShotBridge.gd", project / "RtVRadarShotBridge.gd")
+            shutil.copyfile(SOURCE / "RtVRadarLiteOverlay.gd", project / "RtVRadarLiteOverlay.gd")
         shutil.copytree(ROOT / "tests" / "telemetry-diagnostic" / "Resources", project / "Resources")
         scripts = project / "Scripts"
         scripts.mkdir()

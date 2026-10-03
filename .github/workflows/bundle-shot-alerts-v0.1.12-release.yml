@@ -1,0 +1,171 @@
+name: Shot Alerts Windows bundle prerelease
+
+# Branch pushes cannot publish. Never move a tag or overwrite release assets.
+on:
+  push:
+    tags:
+      - v0.1.12-experimental
+
+permissions:
+  contents: write
+
+jobs:
+  windows-toolkit:
+    if: github.repository == 'jtburkh/Sobolyatnik-K'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+      - name: Build and test exact Windows Toolkit
+        shell: powershell
+        run: |
+          cargo test --locked --target x86_64-pc-windows-msvc
+          if ($LASTEXITCODE -ne 0) { throw 'Windows Rust tests failed' }
+          cargo build --locked --release --target x86_64-pc-windows-msvc
+          if ($LASTEXITCODE -ne 0) { throw 'Windows Toolkit build failed' }
+          $exe = 'target/x86_64-pc-windows-msvc/release/rtv-toolkit.exe'
+          $helpText = & $exe --help | Out-String
+          if ($LASTEXITCODE -ne 0 -or $helpText -notmatch 'rtv-toolkit --check') { throw 'Windows Toolkit CLI smoke failed' }
+          Write-Host "Tested EXE SHA-256: $((Get-FileHash $exe -Algorithm SHA256).Hash)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shot-alerts-tested-windows-toolkit
+          path: target/x86_64-pc-windows-msvc/release/rtv-toolkit.exe
+          if-no-files-found: error
+
+  prepare:
+    needs: windows-toolkit
+    runs-on: ubuntu-latest
+    outputs:
+      setup_sha256: ${{ steps.asset-hashes.outputs.setup_sha256 }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          name: shot-alerts-tested-windows-toolkit
+          path: dist/release
+      - name: Build new versioned Shot Alerts VMZ and render hash-pinned installer
+        run: |
+          python3 -m unittest discover -s tests/catalog -p 'test_*.py'
+          python3 tools/package_radar_lite.py
+          echo '66fd97a4c1487be6688ef94b59ee709a3baa8c7886c490d2f03af7b8c395eefc  dist/probes/RtVRadarLoot.vmz' | sha256sum -c -
+          python3 tools/package_radar_shots_release.py
+          echo '6d2d06e55831f174483595d44fde6ba5c3a50f7fec183d2c66a5953ecb98efdd  dist/probes/RtVRadarShotsRelease.vmz' | sha256sum -c -
+          echo 'cf66879c05c3a8404458e24b1e75f6943895c604a497398551db8535ba01c39d  tools/install-sobolyatnik-v0.1.12.ps1' | sha256sum -c -
+          unzip -t dist/probes/RtVRadarShotsRelease.vmz
+          unzip -p dist/probes/RtVRadarShotsRelease.vmz mod.txt | grep -F 'version="0.1.12"'
+          unzip -p dist/probes/RtVRadarShotsRelease.vmz RtVRadarLiteOverlay.gd | grep -F '"SHOT ALERTS", "ALL+SHOTS"'
+          ! unzip -p dist/probes/RtVRadarShotsRelease.vmz RtVRadarShotBridge.gd | grep -F '.hook('
+          python3 tools/render_bundle_installer.py --toolkit dist/release/rtv-toolkit.exe --template tools/setup-sobolyatnik-v0.1.12.ps1.in --uninstaller tools/uninstall-sobolyatnik-v0.1.12.ps1 --output dist/release/setup-sobolyatnik.ps1
+          cp dist/probes/RtVRadarShotsRelease.vmz dist/release/RtVRadarLoot.vmz
+          cp tools/install-sobolyatnik-v0.1.12.ps1 dist/release/install-sobolyatnik.ps1
+          cp tools/uninstall-sobolyatnik-v0.1.12.ps1 dist/release/uninstall-sobolyatnik.ps1
+          sha256sum dist/release/*
+      - name: Record exact tested setup hash for release notes
+        id: asset-hashes
+        run: echo "setup_sha256=$(sha256sum dist/release/setup-sobolyatnik.ps1 | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: shot-alerts-tested-release-assets
+          path: dist/release/*
+          if-no-files-found: error
+
+  smoke-bundle:
+    needs: prepare
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          name: shot-alerts-tested-release-assets
+          path: dist/release
+      - name: Download and hash-check official Metro and old published fixtures
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path dist/fixture | Out-Null
+          $assets = @(
+            @{ Name = 'modloader.gd'; Url = 'https://github.com/ametrocavich/vostok-mod-loader/releases/download/v3.2.1/modloader.gd'; Hash = '60FCF7FEEC0A47C6472E3B7A190B46987B374618AE3D149C081B222542BC6135' },
+            @{ Name = 'override.cfg'; Url = 'https://github.com/ametrocavich/vostok-mod-loader/releases/download/v3.2.1/override.cfg'; Hash = '9750A66FCF0CB1D9BF84284271F52E064F455CDD5A1CDC4981A007E4011A684B' },
+            @{ Name = 'install-sobolyatnik-v0.1.8.ps1'; Url = 'https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.8-experimental/install-sobolyatnik.ps1'; Hash = 'FC8B4D38F2373B750BD9457BD3D779A5CE613E541F6643AEFFD99634B3F0DF72' },
+            @{ Name = 'RtVRadarLoot-v0.1.11.vmz'; Url = 'https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.11-experimental/RtVRadarLoot.vmz'; Hash = '66FD97A4C1487BE6688EF94B59EE709A3BAA8C7886C490D2F03AF7B8C395EEFC' },
+            @{ Name = 'setup-sobolyatnik-v0.1.11.ps1'; Url = 'https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.11-experimental/setup-sobolyatnik.ps1'; Hash = 'A2CBBFA5AA1D6CCC6DA9B664CAD29ECD9A0B1BC4FDA6054E29FDF4BE13E98388' },
+            @{ Name = 'uninstall-sobolyatnik-v0.1.11.ps1'; Url = 'https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.11-experimental/uninstall-sobolyatnik.ps1'; Hash = '27088ABFC7D10040BF624FD79B47CA99DD7A7D2B0EB7C33310E91D41A044209D' },
+            @{ Name = 'rtv-toolkit-v0.1.11.exe'; Url = 'https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.11-experimental/rtv-toolkit.exe'; Hash = 'C0D0D08528465D574666F3956A41D3AE7F17B810679BB9AE5F48DFF8F2C732A3' }
+          )
+          foreach ($asset in $assets) {
+            $path = Join-Path dist/fixture $asset.Name
+            Invoke-WebRequest -UseBasicParsing -Uri $asset.Url -OutFile $path
+            if ((Get-FileHash $path -Algorithm SHA256).Hash -ine $asset.Hash) { throw "Fixture hash mismatch: $($asset.Name)" }
+          }
+          if ((Get-FileHash dist/release/RtVRadarLoot.vmz -Algorithm SHA256).Hash -ine '6D2D06E55831F174483595D44FDE6BA5C3A50F7FEC183D2C66A5953ECB98EFDD') { throw 'Shot Alerts VMZ differs from tested source' }
+          if ((Get-FileHash dist/release/install-sobolyatnik.ps1 -Algorithm SHA256).Hash -ine 'CF66879C05C3A8404458E24B1E75F6943895C604A497398551DB8535BA01C39D') { throw 'Radar installer differs from tested source' }
+      - name: Test exact radar installer in disposable Steam libraries
+        shell: powershell
+        run: ./tests/installer/smoke.ps1 -InstallerPath ./dist/release/install-sobolyatnik.ps1 -ArchivePath ./dist/release/RtVRadarLoot.vmz -LoaderSourceDirectory ./dist/fixture -ExpectedRadarHash 6D2D06E55831F174483595D44FDE6BA5C3A50F7FEC183D2C66A5953ECB98EFDD
+      - name: Test complete Windows bundle, prior-release refusal and safe uninstall
+        shell: powershell
+        run: |
+          ./tests/installer/bundle-smoke.ps1 -ArchivePath ./dist/release/RtVRadarLoot.vmz -LoaderSourceDirectory ./dist/fixture -FakeToolkitPath ./dist/release/rtv-toolkit.exe -RenderedInstaller ./dist/release/setup-sobolyatnik.ps1 -RadarInstallerPath ./dist/release/install-sobolyatnik.ps1 -UninstallerPath ./dist/release/uninstall-sobolyatnik.ps1 -PreviousBundleInstallerPath ./dist/fixture/setup-sobolyatnik-v0.1.11.ps1 -PreviousBundleToolkitPath ./dist/fixture/rtv-toolkit-v0.1.11.exe -PreviousBundleUninstallerPath ./dist/fixture/uninstall-sobolyatnik-v0.1.11.ps1 -PreviousBundleRadarInstallerPath ./dist/fixture/install-sobolyatnik-v0.1.8.ps1 -PreviousBundleArchivePath ./dist/fixture/RtVRadarLoot-v0.1.11.vmz -PreviousBundleVersion 0.1.11-experimental -ExpectedBundleVersion 0.1.12-experimental -ExpectedRadarHash 6D2D06E55831F174483595D44FDE6BA5C3A50F7FEC183D2C66A5953ECB98EFDD -TestIntegration -CheckToolkitHelp
+
+  publish:
+    needs: [prepare, smoke-bundle]
+    if: github.repository == 'jtburkh/Sobolyatnik-K'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: shot-alerts-tested-release-assets
+          path: dist/release
+      - name: Refuse to overwrite an existing versioned release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          status=$(curl -L -sS -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' 'https://api.github.com/repos/jtburkh/Sobolyatnik-K/releases/tags/v0.1.12-experimental')
+          test "$status" = 404 || { echo "Release exists or GitHub API unavailable (HTTP $status); refusing to overwrite."; exit 1; }
+      - name: Print exact tested release asset hashes
+        run: sha256sum dist/release/*
+      - name: Publish new experimental prerelease (never overwrite older assets)
+        uses: softprops/action-gh-release@v2
+        with:
+          prerelease: true
+          draft: false
+          fail_on_unmatched_files: true
+          name: 'Sobolyatnik-K 0.1.12 Experimental — Shot Alerts'
+          body: |
+            Experimental Windows-only bundle for Road to Vostok Steam build
+            25632875. **Shot Alerts** is the visible default in-game radar view:
+            only human-AI shot markers (enemies, Nomads and bosses) appear and
+            fade for five seconds. F7 cycles the other existing radar views;
+            F8 hides/shows the HUD. Player and vehicle shots are excluded.
+            The Windows Toolkit includes the Build 2 catalog and fades shot
+            markers received over its default loopback UDP listener.
+
+            Owner-approved, disposable-save Build 2 gameplay confirmed this
+            behavior in one Village session. This is **not broad combat or
+            native-crash clearance**. Do not combine with the diagnostic
+            bridge or re-enable the old AI.PlayFire hook.
+
+            Close Road to Vostok before installation. For an existing v0.1.9
+            or v0.1.11 Windows **bundle**, first use its own verified
+            uninstaller in Windows Installed Apps. This new installer refuses
+            to overwrite another bundle receipt or executable. Uninstall
+            leaves saves, backups, Metro and game binaries alone. A radar-only
+            v0.1.8 installation can be adopted with a verified VMZ backup.
+            Download and run the setup script only after verifying its
+            SHA-256 from this workflow's prepare job output:
+            `${{ needs.prepare.outputs.setup_sha256 }}`.
+            All downloaded versioned components are checked again by setup.
+          files: |
+            dist/release/RtVRadarLoot.vmz
+            dist/release/rtv-toolkit.exe
+            dist/release/install-sobolyatnik.ps1
+            dist/release/setup-sobolyatnik.ps1
+            dist/release/uninstall-sobolyatnik.ps1

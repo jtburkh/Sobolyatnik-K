@@ -10,6 +10,11 @@ param(
     [string] $PreviousBundleInstallerPath,
     [string] $PreviousBundleToolkitPath,
     [string] $PreviousBundleUninstallerPath,
+    [string] $PreviousBundleRadarInstallerPath,
+    [string] $PreviousBundleArchivePath,
+    [string] $PreviousBundleVersion = '0.1.9-experimental',
+    [string] $ExpectedBundleVersion = '0.1.11-experimental',
+    [string] $ExpectedRadarHash = '66FD97A4C1487BE6688EF94B59EE709A3BAA8C7886C490D2F03AF7B8C395EEFC',
     [switch] $TestIntegration,
     [switch] $CheckToolkitHelp
 )
@@ -83,7 +88,7 @@ try {
                (Test-Path -LiteralPath (Join-Path $menu 'Uninstall Sobolyatnik-K.lnk')) -and
                (Test-Path -LiteralPath $reg)) 'Start Menu/uninstall registration missing'
     }
-    Check ((Get-FileHash $radar -Algorithm SHA256).Hash -eq '66FD97A4C1487BE6688EF94B59EE709A3BAA8C7886C490D2F03AF7B8C395EEFC') 'Radar hash changed'
+    Check ((Get-FileHash $radar -Algorithm SHA256).Hash -eq $ExpectedRadarHash) 'Radar hash changed'
     Check (Test-Path -LiteralPath $receipt -PathType Leaf) 'No ownership receipt written'
     & $rendered @args | Out-Null
     Check (@(Get-ChildItem -LiteralPath (Join-Path $game 'mods') -File).Count -eq 1) 'Idempotent install left temp files'
@@ -112,7 +117,7 @@ try {
     $overrideHash = (Get-FileHash $override -Algorithm SHA256).Hash
     & $rendered @args | Out-Null
     Check ((Get-FileHash $override -Algorithm SHA256).Hash -eq $overrideHash) 'Upgrading from v0.1.8 overwrote Metro state'
-    Check ((Get-FileHash $radar -Algorithm SHA256).Hash -eq '66FD97A4C1487BE6688EF94B59EE709A3BAA8C7886C490D2F03AF7B8C395EEFC') 'Upgrade replaced the tested VMZ'
+    Check ((Get-FileHash $radar -Algorithm SHA256).Hash -eq $ExpectedRadarHash) 'Upgrade replaced the tested VMZ'
     & $rendered -Uninstall -NoIntegration:(-not $TestIntegration) | Out-Null
     Check ((Get-FileHash $override -Algorithm SHA256).Hash -eq $overrideHash) 'Uninstall overwrote Metro state'
     Fails { & $rendered -GamePath $game -ArchivePath $archive -ToolkitPath (Join-Path $root 'missing.exe') -UninstallerPath $uninstaller -RadarInstallerPath $legacy -NoIntegration } 'Cannot find path'
@@ -122,27 +127,29 @@ try {
         $oldBundle = (Resolve-Path -LiteralPath $PreviousBundleInstallerPath).ProviderPath
         $oldExe = (Resolve-Path -LiteralPath $PreviousBundleToolkitPath).ProviderPath
         $oldUninstaller = (Resolve-Path -LiteralPath $PreviousBundleUninstallerPath).ProviderPath
+        $oldRadarInstaller = if ($PreviousBundleRadarInstallerPath) { (Resolve-Path -LiteralPath $PreviousBundleRadarInstallerPath).ProviderPath } else { $legacy }
+        $oldArchive = if ($PreviousBundleArchivePath) { (Resolve-Path -LiteralPath $PreviousBundleArchivePath).ProviderPath } else { $archive }
         $saveDir = Join-Path $env:APPDATA 'Road to Vostok'
         New-Item -ItemType Directory -Force -Path $saveDir | Out-Null
         $save = Join-Path $saveDir 'Character.tres'
         [IO.File]::WriteAllText($save, 'fixture save: keep')
         $oldArgs = @{
-            GamePath = $game; ArchivePath = $archive; LoaderSourceDirectory = $loader
-            ToolkitPath = $oldExe; RadarInstallerPath = $legacy; UninstallerPath = $oldUninstaller
+            GamePath = $game; ArchivePath = $oldArchive; LoaderSourceDirectory = $loader
+            ToolkitPath = $oldExe; RadarInstallerPath = $oldRadarInstaller; UninstallerPath = $oldUninstaller
         }
         if (-not $TestIntegration) { $oldArgs.NoIntegration = $true }
         & $oldBundle @oldArgs | Out-Null
-        Check (([IO.File]::ReadAllText($receipt) | ConvertFrom-Json).Version -eq '0.1.9-experimental') 'Previous bundle receipt missing'
+        Check (([IO.File]::ReadAllText($receipt) | ConvertFrom-Json).Version -eq $PreviousBundleVersion) 'Previous bundle receipt missing'
         $previousHash = (Get-FileHash $installedExe -Algorithm SHA256).Hash
-        Fails { & $rendered @args } 'v0.1.9 is installed'
+        Fails { & $rendered @args } ("v$(($PreviousBundleVersion -split '-')[0]) is installed")
         Check ((Get-FileHash $installedExe -Algorithm SHA256).Hash -eq $previousHash) 'Collision overwrote v0.1.9 Toolkit'
-        Check (([IO.File]::ReadAllText($receipt) | ConvertFrom-Json).Version -eq '0.1.9-experimental') 'Collision rewrote previous receipt'
-        Check ((Get-FileHash $radar -Algorithm SHA256).Hash -eq '66FD97A4C1487BE6688EF94B59EE709A3BAA8C7886C490D2F03AF7B8C395EEFC') 'Collision changed radar'
+        Check (([IO.File]::ReadAllText($receipt) | ConvertFrom-Json).Version -eq $PreviousBundleVersion) 'Collision rewrote previous receipt'
+        Check ((Get-FileHash $radar -Algorithm SHA256).Hash -eq (Get-FileHash $oldArchive -Algorithm SHA256).Hash) 'Collision changed radar'
         & $oldBundle -Uninstall -NoIntegration:(-not $TestIntegration) | Out-Null
         Check (-not (Test-Path -LiteralPath $radar) -and -not (Test-Path -LiteralPath $receipt)) 'v0.1.9 uninstall incomplete'
         Check ([IO.File]::ReadAllText($save) -eq 'fixture save: keep') 'Previous uninstall changed save'
         & $rendered @args | Out-Null
-        Check (([IO.File]::ReadAllText($receipt) | ConvertFrom-Json).Version -eq '0.1.11-experimental') 'New version receipt missing'
+        Check (([IO.File]::ReadAllText($receipt) | ConvertFrom-Json).Version -eq $ExpectedBundleVersion) 'New version receipt missing'
         if ($CheckToolkitHelp) {
             $helpText = & $installedExe --help | Out-String
             Check ($LASTEXITCODE -eq 0 -and $helpText -match 'rtv-toolkit --check') 'Upgraded Toolkit does not launch'
@@ -152,7 +159,7 @@ try {
         Check ([IO.File]::ReadAllText($save) -eq 'fixture save: keep') 'Upgrade flow changed save'
         Check ((Test-Path -LiteralPath (Join-Path $game 'RTV.pck')) -and (Test-Path -LiteralPath (Join-Path $game 'RTV.exe'))) 'Upgrade flow changed game binaries'
     }
-    Write-Host 'BUNDLE SMOKE OK: clean, v0.1.8, optional v0.1.9 uninstall/reinstall, dry run, hashes, receipt, idempotence, tamper/running-game refusal, Metro and save retention.'
+    Write-Host "BUNDLE SMOKE OK: clean, radar-only install, optional $PreviousBundleVersion uninstall/reinstall, dry run, hashes, receipt, idempotence, tamper/running-game refusal, Metro and save retention."
 } catch {
     # Surface the actual fixture error as a public CI annotation; generic job
     # failures are otherwise difficult to diagnose without Actions log access.
