@@ -2,7 +2,7 @@
 
 Sobolyatnik-K is an unofficial mod for **Road to Vostok**: an in-game radar for tracking people, movement trails, and loot, plus the RtV Toolkit terminal app for managing your character while the game is closed. Not affiliated with the developer. Many thanks to Antti for making a fun game!
 
-## Install the radar and Toolkit (Windows / Steam)
+## Install the Radar and Toolkit (Windows / Steam)
 
 Install Road to Vostok **Steam build 25632875**, close the game, then paste this **one line into PowerShell**:
 
