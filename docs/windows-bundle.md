@@ -83,11 +83,12 @@ not remove a shared Metro installation just to remove this mod.
 - Windows CI compiled, ran and tested the executable and exercised installer,
   Start Menu, Installed Apps, and removal on disposable Steam fixtures
   ([v0.1.11 release workflow](https://github.com/jtburkh/Sobolyatnik-K/actions/runs/37095644880)).
-  The exact assets exercised in the release fixture were then independently
-  downloaded from the public release and matched their SHA-256 hashes. The
-  fixture covers both clean install and v0.1.9 uninstall/reinstall while
-  retaining its synthetic save and Metro. This is **not** a broad real-game
-  crash-clearance claim.
+  All four public release assets were independently downloaded, hash-checked,
+  and run through a second disposable Windows fixture with `-NoIntegration`:
+  clean install, v0.1.8 adoption, v0.1.9 refusal/uninstall/reinstall,
+  `rtv-toolkit.exe --help`, and safe removal retained its synthetic save and
+  Metro. No real game or user save was changed. This is **not** a broad
+  real-game crash-clearance claim.
 
 See [telemetry configuration](telemetry-installation.md) for optional live
 terminal radar networking and [diagnostics](telemetry-diagnostics.md) for
