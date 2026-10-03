@@ -36,7 +36,7 @@ An owner-driven disposable-save Build 2 session confirmed the corrected candidat
 
 ## Toolkit: manage your character offline
 
-The companion `rtv-toolkit` terminal program can inspect and edit character inventory and equipment, validate item placement, and check a save without opening its UI. **Close Road to Vostok before editing a save.** Before replacing a save, it checks for external changes and keeps a timestamped `.rtvbak.*` backup. Keep your own backup of important saves too.
+The companion `rtv-toolkit` terminal program can inspect and edit character inventory and equipment, validate item placement, and check a save without opening its UI.  It also includes a text based radar display for doing tactical level analysis of the area. **Close Road to Vostok before editing a save.** Before replacing a save, it checks for external changes and keeps a timestamped `.rtvbak.*` backup. Keep your own backup of important saves too.
 
 ![Toolkit Character pane showing the character schematic, vitals and selected weapon details; personal save path redacted](assets/screenshots/toolkit-character.png)
 
