@@ -149,6 +149,12 @@ jobs:
           if ((Get-FileHash dist/windows/install-sobolyatnik-v0.1.8.ps1 -Algorithm SHA256).Hash -ne 'FC8B4D38F2373B750BD9457BD3D779A5CE613E541F6643AEFFD99634B3F0DF72') { throw 'Legacy radar installer hash mismatch' }
       - name: Render reviewed bundle template with tested Windows EXE
         run: python tools/render_bundle_installer.py --toolkit dist/windows/rtv-toolkit.exe --output dist/windows/setup-sobolyatnik.ps1
-      - name: Check complete bundle, Windows entries, and safe uninstall
+      - name: Check complete legacy bundle, Windows entries, and safe uninstall
         shell: powershell
         run: ./tests/installer/bundle-smoke.ps1 -ArchivePath ./dist/probes/RtVRadarLoot.vmz -LoaderSourceDirectory ./dist/metro -FakeToolkitPath ./dist/windows/rtv-toolkit.exe -RenderedInstaller ./dist/windows/setup-sobolyatnik.ps1 -RadarInstallerPath ./dist/windows/install-sobolyatnik-v0.1.8.ps1 -TestIntegration -CheckToolkitHelp
+      - name: Render and check new Build 2 bundle in disposable Steam fixture
+        shell: powershell
+        run: |
+          python tools/render_bundle_installer.py --toolkit dist/windows/rtv-toolkit.exe --template tools/setup-sobolyatnik-v0.1.10.ps1.in --uninstaller tools/uninstall-sobolyatnik-v0.1.10.ps1 --output dist/windows/setup-sobolyatnik-v0.1.10.ps1
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to render Build 2 installer' }
+          ./tests/installer/bundle-smoke.ps1 -ArchivePath ./dist/probes/RtVRadarLoot.vmz -LoaderSourceDirectory ./dist/metro -FakeToolkitPath ./dist/windows/rtv-toolkit.exe -RenderedInstaller ./dist/windows/setup-sobolyatnik-v0.1.10.ps1 -RadarInstallerPath ./dist/windows/install-sobolyatnik-v0.1.8.ps1 -UninstallerPath ./tools/uninstall-sobolyatnik-v0.1.10.ps1 -TestIntegration -CheckToolkitHelp

@@ -1,0 +1,224 @@
+#requires -Version 5.1
+<#
+.SYNOPSIS
+    Install Sobolyatnik-K 0.1.10 Experimental: the unchanged 0.1.8 radar,
+    official Metro 3.2.1 if needed, and a per-user Windows Toolkit executable.
+.DESCRIPTION
+    Both bundled scripts and the Toolkit executable are hash-pinned. Uninstall
+    removes only known-hash radar/Toolkit files; it leaves Metro, saves and
+    backups alone. DryRun and source paths support disposable fixture tests.
+#>
+[CmdletBinding()]
+param(
+    [string] $GamePath,
+    [string] $SteamRoot,
+    [string] $ArchivePath,
+    [string] $LoaderSourceDirectory,
+    [string] $ToolkitPath,
+    [string] $RadarInstallerPath,
+    [string] $UninstallerPath,
+    [switch] $DryRun,
+    [switch] $Uninstall,
+    [switch] $NoIntegration
+)
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+$version = '0.1.10-experimental'
+$toolkitHash = '@TOOLKIT_SHA256@'
+$uninstallerHash = '@UNINSTALLER_SHA256@'
+$radarHash = '66fd97a4c1487be6688ef94b59ee709a3baa8c7886c490d2f03af7b8c395eefc'
+$oldInstallerHash = 'fc8b4d38f2373b750bd9457bd3d779a5ce613e541f6643aeffd99634b3f0df72'
+$oldRelease = 'https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.8-experimental'
+$newRelease = 'https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.10-experimental'
+$programDir = Join-Path $env:LOCALAPPDATA 'Programs\Sobolyatnik-K'
+$toolkitDest = Join-Path $programDir 'rtv-toolkit.exe'
+$uninstallerDest = Join-Path $programDir 'uninstall-sobolyatnik.ps1'
+$receiptDir = Join-Path $env:LOCALAPPDATA 'Sobolyatnik-K'
+$receiptPath = Join-Path $receiptDir 'installed.json'
+$startMenu = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Sobolyatnik-K'
+$registry = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Sobolyatnik-K'
+
+function Assert-Hash([string] $Path, [string] $Expected, [string] $Description) {
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { throw "$Description unavailable: $Path" }
+    $hash = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash
+    if ($hash -ine $Expected) { throw "$Description SHA-256 mismatch ($hash). Nothing was installed by this script." }
+}
+function Obtain([string] $Local, [string] $Url, [string] $Name, [string] $Hash) {
+    if ($Local) { $path = (Resolve-Path -LiteralPath $Local).ProviderPath }
+    else {
+        $path = Join-Path ([IO.Path]::GetTempPath()) ('sobolyatnik-' + [guid]::NewGuid().ToString('N') + '-' + $Name)
+        $script:downloads.Add($path)
+        Write-Host "Downloading $Name from $Url"
+        Invoke-WebRequest -Uri $Url -OutFile $path -UseBasicParsing
+    }
+    Assert-Hash $path $Hash $Name
+    return $path
+}
+function Assert-NoCollision {
+    if (Test-Path -LiteralPath $receiptPath -PathType Leaf) {
+        $existing = [IO.File]::ReadAllText($receiptPath) | ConvertFrom-Json
+        if ($existing.Version -eq '0.1.9-experimental') {
+            throw 'v0.1.9 is installed. Close RTV, uninstall v0.1.9 from Windows Installed Apps (or its verified uninstaller), then run this setup again. This installer will not overwrite a different version; Metro, saves and backups are preserved.'
+        }
+    }
+    foreach ($asset in @(
+        @{ Path = $toolkitDest; Hash = $toolkitHash; Name = 'Installed Toolkit' },
+        @{ Path = $uninstallerDest; Hash = $uninstallerHash; Name = 'Installed uninstaller' }
+    )) {
+        if ((Test-Path -LiteralPath $asset.Path) -and
+            (Get-FileHash -LiteralPath $asset.Path -Algorithm SHA256).Hash -ine $asset.Hash) {
+            throw "$($asset.Name) already exists but has different contents. Refusing to overwrite $($asset.Path)"
+        }
+    }
+    if (Test-Path -LiteralPath $receiptPath) {
+        $previous = [IO.File]::ReadAllText($receiptPath) | ConvertFrom-Json
+        if ($previous.Version -ne $version -or $previous.ToolkitSha256 -ine $toolkitHash -or
+            $previous.UninstallerSha256 -ine $uninstallerHash -or
+            [string]$previous.GamePath -notmatch '(?i)\\steamapps\\common\\[^\\]+$') {
+            throw 'An unknown Sobolyatnik-K bundle receipt exists. Resolve it manually; no files were overwritten.'
+        }
+        if ($GamePath -and [IO.Path]::GetFullPath($GamePath).TrimEnd('\') -ine
+            [IO.Path]::GetFullPath([string]$previous.GamePath).TrimEnd('\')) {
+            throw 'This bundle belongs to a different game installation; no game files were changed.'
+        }
+    }
+    if (-not $NoIntegration) {
+        if (Test-Path -LiteralPath $registry) {
+            $entry = Get-ItemProperty -LiteralPath $registry
+            if ($entry.DisplayName -ne 'Sobolyatnik-K (Experimental)' -or
+                $entry.UninstallString -notlike ('*' + $uninstallerDest + '*')) {
+                throw 'Another application owns the Sobolyatnik-K uninstall entry.'
+            }
+        }
+        if (Test-Path -LiteralPath $startMenu) {
+            $shell = New-Object -ComObject WScript.Shell
+            foreach ($entry in @(
+                @{ Name = 'Sobolyatnik-K Toolkit.lnk'; Target = (Join-Path $env:SystemRoot 'System32\cmd.exe'); Contains = $toolkitDest },
+                @{ Name = 'Uninstall Sobolyatnik-K.lnk'; Target = (Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'); Contains = $uninstallerDest }
+            )) {
+                $path = Join-Path $startMenu $entry.Name
+                if (Test-Path -LiteralPath $path) {
+                    if (-not (Test-Path -LiteralPath $receiptPath)) {
+                        throw 'Start Menu entries already exist without our receipt; refusing to overwrite them.'
+                    }
+                    $shortcut = $shell.CreateShortcut($path)
+                    if ($shortcut.TargetPath -ine $entry.Target -or
+                        $shortcut.Arguments -notlike ('*' + $entry.Contains + '*')) {
+                        throw "Start Menu shortcut was modified; refusing to overwrite $path"
+                    }
+                }
+            }
+        }
+    }
+}
+function Install-Pinned([string] $Source, [string] $Destination, [string] $Hash) {
+    if (Test-Path -LiteralPath $Destination -PathType Leaf) { Assert-Hash $Destination $Hash $Destination; return }
+    $stage = $Destination + '.' + [guid]::NewGuid().ToString('N') + '.rtvtmp'
+    try {
+        Copy-Item -LiteralPath $Source -Destination $stage -ErrorAction Stop
+        Assert-Hash $stage $Hash $Destination
+        [IO.File]::Move($stage, $Destination)
+    } finally {
+        if (Test-Path -LiteralPath $stage) { Remove-Item -LiteralPath $stage -Force }
+    }
+}
+
+if ($Uninstall) {
+    if (-not (Test-Path -LiteralPath $uninstallerDest -PathType Leaf)) {
+        throw 'No installed bundle uninstaller found. For v0.1.8, close the game and move RtVRadarLoot.vmz out of mods.'
+    }
+    Assert-Hash $uninstallerDest $uninstallerHash 'Installed uninstaller'
+    & $uninstallerDest -NoIntegration:$NoIntegration
+    return
+}
+$downloads = New-Object System.Collections.Generic.List[string]
+try {
+    $toolkitSource = Obtain $ToolkitPath ($newRelease + '/rtv-toolkit.exe') 'rtv-toolkit.exe' $toolkitHash
+    $uninstallerSource = Obtain $UninstallerPath ($newRelease + '/uninstall-sobolyatnik.ps1') 'uninstall-sobolyatnik.ps1' $uninstallerHash
+    $oldInstaller = Obtain $RadarInstallerPath ($oldRelease + '/install-sobolyatnik.ps1') 'radar-installer.ps1' $oldInstallerHash
+    Assert-NoCollision
+
+    # The unchanged, separately pinned v0.1.8 installer owns Steam discovery,
+    # game/build checks, loader validation, radar backup, and VMZ replacement.
+    $installGame = $GamePath
+    if (-not $installGame -and (Test-Path -LiteralPath $receiptPath -PathType Leaf)) {
+        $installGame = ([IO.File]::ReadAllText($receiptPath) | ConvertFrom-Json).GamePath
+    }
+    $oldArgs = @{ GamePath = $installGame; SteamRoot = $SteamRoot }
+    if ($ArchivePath) { $oldArgs.ArchivePath = $ArchivePath }
+    if ($LoaderSourceDirectory) { $oldArgs.LoaderSourceDirectory = $LoaderSourceDirectory }
+    if ($DryRun) { $oldArgs.DryRun = $true }
+    $messages = @(& $oldInstaller @oldArgs 6>&1)
+    foreach ($message in $messages) { Write-Host $message.ToString() }
+    if ($DryRun) {
+        Write-Host "Dry run: would install verified Toolkit into $programDir."
+        if (-not $NoIntegration) { Write-Host 'Dry run: would add Start Menu and Windows Installed Apps entries.' }
+        return
+    }
+    $installedLine = @($messages | ForEach-Object { $_.ToString() } |
+        Where-Object { $_ -match '^(?:Installed:|Already installed:) ' } | Select-Object -Last 1)
+    if ($installedLine.Count -ne 1 -or
+        $installedLine[0] -notmatch '^(?:Installed:|Already installed:) (.+?)(?: \(Metro 3\.2\.1 present\))?$') {
+        throw 'Radar install completed but did not report its destination. The radar may be installed; retry setup rather than deleting game files.'
+    }
+    $radar = [IO.Path]::GetFullPath($Matches[1])
+    Assert-Hash $radar $radarHash 'Installed radar'
+    if ([IO.Path]::GetFileName($radar) -ine 'RtVRadarLoot.vmz' -or
+        [IO.Path]::GetFileName([IO.Path]::GetDirectoryName($radar)) -ine 'mods') {
+        throw 'Unexpected radar destination; refusing to register an uninstaller.'
+    }
+    $game = [IO.Path]::GetDirectoryName([IO.Path]::GetDirectoryName($radar))
+    if ((Test-Path -LiteralPath $receiptPath -PathType Leaf) -and
+        ([IO.File]::ReadAllText($receiptPath) | ConvertFrom-Json).GamePath -ine $game) {
+        throw 'Bundle receipt belongs to a different game install; refusing to overwrite it.'
+    }
+    New-Item -ItemType Directory -Force -Path $programDir, $receiptDir | Out-Null
+    Install-Pinned $toolkitSource $toolkitDest $toolkitHash
+    Install-Pinned $uninstallerSource $uninstallerDest $uninstallerHash
+    if (-not $NoIntegration) {
+        New-Item -ItemType Directory -Force -Path $startMenu | Out-Null
+        $shell = New-Object -ComObject WScript.Shell
+        $launch = $shell.CreateShortcut((Join-Path $startMenu 'Sobolyatnik-K Toolkit.lnk'))
+        $launch.TargetPath = Join-Path $env:SystemRoot 'System32\cmd.exe'
+        $launch.Arguments = '/k ""' + $toolkitDest + '""'
+        $launch.WorkingDirectory = $programDir
+        $launch.Description = 'Open the Sobolyatnik-K offline character Toolkit'
+        $launch.Save()
+        $remove = $shell.CreateShortcut((Join-Path $startMenu 'Uninstall Sobolyatnik-K.lnk'))
+        $remove.TargetPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+        $remove.Arguments = '-NoProfile -ExecutionPolicy Bypass -File "' + $uninstallerDest + '"'
+        $remove.Description = 'Remove the radar and Toolkit; preserve Metro and saves'
+        $remove.Save()
+        New-Item -Path $registry -Force | Out-Null
+        New-ItemProperty -LiteralPath $registry -Name DisplayName -Value 'Sobolyatnik-K (Experimental)' -PropertyType String -Force | Out-Null
+        New-ItemProperty -LiteralPath $registry -Name DisplayVersion -Value '0.1.10' -PropertyType String -Force | Out-Null
+        New-ItemProperty -LiteralPath $registry -Name Publisher -Value 'Sobolyatnik-K project' -PropertyType String -Force | Out-Null
+        New-ItemProperty -LiteralPath $registry -Name InstallLocation -Value $programDir -PropertyType String -Force | Out-Null
+        New-ItemProperty -LiteralPath $registry -Name UninstallString -Value ('"' + (Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe') + '" -NoProfile -ExecutionPolicy Bypass -File "' + $uninstallerDest + '"') -PropertyType String -Force | Out-Null
+        New-ItemProperty -LiteralPath $registry -Name NoModify -Value 1 -PropertyType DWord -Force | Out-Null
+        New-ItemProperty -LiteralPath $registry -Name NoRepair -Value 1 -PropertyType DWord -Force | Out-Null
+    }
+    if (-not (Test-Path -LiteralPath $receiptPath -PathType Leaf)) {
+        $receipt = @{
+            Version = $version; GamePath = $game; RadarSha256 = $radarHash
+            ToolkitSha256 = $toolkitHash; UninstallerSha256 = $uninstallerHash
+        } | ConvertTo-Json
+        $receiptStage = Join-Path $receiptDir ('installed-' + [guid]::NewGuid().ToString('N') + '.rtvtmp')
+        try {
+            [IO.File]::WriteAllText($receiptStage, $receipt)
+            [IO.File]::Move($receiptStage, $receiptPath)
+        } finally {
+            if (Test-Path -LiteralPath $receiptStage) { Remove-Item -LiteralPath $receiptStage -Force }
+        }
+    }
+    Write-Host "Installed Toolkit: $toolkitDest"
+    if ($NoIntegration) {
+        Write-Host 'NoIntegration test mode: no Start Menu or Windows Installed Apps entries created.'
+    } else {
+        Write-Host 'Launch or uninstall it via Start Menu > Sobolyatnik-K (or Windows Installed Apps). Uninstall leaves Metro, saves, and backups in place.'
+    }
+} finally {
+    foreach ($download in $downloads) {
+        if (Test-Path -LiteralPath $download) { Remove-Item -LiteralPath $download -Force }
+    }
+}

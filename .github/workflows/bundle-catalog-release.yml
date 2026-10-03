@@ -1,0 +1,157 @@
+name: Build 2 catalog Windows bundle prerelease
+
+# A branch push cannot publish. Never republish or replace v0.1.9 assets.
+on:
+  push:
+    tags:
+      - v0.1.10-experimental
+
+permissions:
+  contents: write
+
+jobs:
+  windows-toolkit:
+    if: github.repository == 'jtburkh/Sobolyatnik-K'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+      - name: Build and test exact Build 2 Toolkit
+        shell: powershell
+        run: |
+          cargo test --locked --target x86_64-pc-windows-msvc
+          if ($LASTEXITCODE -ne 0) { throw 'Windows Rust tests failed' }
+          cargo build --locked --release --target x86_64-pc-windows-msvc
+          if ($LASTEXITCODE -ne 0) { throw 'Windows Toolkit build failed' }
+          $exe = 'target/x86_64-pc-windows-msvc/release/rtv-toolkit.exe'
+          $helpText = & $exe --help | Out-String
+          if ($LASTEXITCODE -ne 0 -or $helpText -notmatch 'rtv-toolkit --check') { throw 'Windows Toolkit CLI smoke failed' }
+          Write-Host "Tested EXE SHA-256: $((Get-FileHash $exe -Algorithm SHA256).Hash)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: catalog-tested-windows-toolkit
+          path: target/x86_64-pc-windows-msvc/release/rtv-toolkit.exe
+          if-no-files-found: error
+
+  prepare:
+    needs: windows-toolkit
+    runs-on: ubuntu-latest
+    outputs:
+      setup_sha256: ${{ steps.asset-hashes.outputs.setup_sha256 }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          name: catalog-tested-windows-toolkit
+          path: dist/release
+      - name: Package unchanged pinned radar and render versioned bundle
+        run: |
+          python3 -m unittest discover -s tests/catalog -p 'test_*.py'
+          python3 tools/package_radar_lite.py
+          echo '66fd97a4c1487be6688ef94b59ee709a3baa8c7886c490d2f03af7b8c395eefc  dist/probes/RtVRadarLoot.vmz' | sha256sum -c -
+          echo 'fc8b4d38f2373b750bd9457bd3d779a5ce613e541f6643aeffd99634b3f0df72  tools/install-sobolyatnik.ps1' | sha256sum -c -
+          unzip -t dist/probes/RtVRadarLoot.vmz
+          python3 tools/render_bundle_installer.py --toolkit dist/release/rtv-toolkit.exe --template tools/setup-sobolyatnik-v0.1.10.ps1.in --uninstaller tools/uninstall-sobolyatnik-v0.1.10.ps1 --output dist/release/setup-sobolyatnik.ps1
+          cp dist/probes/RtVRadarLoot.vmz tools/uninstall-sobolyatnik-v0.1.10.ps1 dist/release/
+          mv dist/release/uninstall-sobolyatnik-v0.1.10.ps1 dist/release/uninstall-sobolyatnik.ps1
+          sha256sum dist/release/*
+      - name: Record exact executable installer hash for release notes
+        id: asset-hashes
+        run: echo "setup_sha256=$(sha256sum dist/release/setup-sobolyatnik.ps1 | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: catalog-pinned-release-assets
+          path: dist/release/*
+          if-no-files-found: error
+
+  smoke-bundle:
+    needs: prepare
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          name: catalog-pinned-release-assets
+          path: dist/release
+      - name: Download and verify old version and official Metro fixture inputs
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path dist/fixture | Out-Null
+          $assets = @(
+            @{ Name = 'modloader.gd'; Url = 'https://github.com/ametrocavich/vostok-mod-loader/releases/download/v3.2.1/modloader.gd'; Hash = '60FCF7FEEC0A47C6472E3B7A190B46987B374618AE3D149C081B222542BC6135' },
+            @{ Name = 'override.cfg'; Url = 'https://github.com/ametrocavich/vostok-mod-loader/releases/download/v3.2.1/override.cfg'; Hash = '9750A66FCF0CB1D9BF84284271F52E064F455CDD5A1CDC4981A007E4011A684B' },
+            @{ Name = 'install-sobolyatnik-v0.1.8.ps1'; Url = 'https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.8-experimental/install-sobolyatnik.ps1'; Hash = 'FC8B4D38F2373B750BD9457BD3D779A5CE613E541F6643AEFFD99634B3F0DF72' },
+            @{ Name = 'setup-sobolyatnik-v0.1.9.ps1'; Url = 'https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.9-experimental/setup-sobolyatnik.ps1'; Hash = 'C7F5D7BEB4355840875BB32CE7DDed0C0451B56E3D51B3B5648129BE6F91F2AC' },
+            @{ Name = 'uninstall-sobolyatnik-v0.1.9.ps1'; Url = 'https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.9-experimental/uninstall-sobolyatnik.ps1'; Hash = '38CAA7F514EC19E5BECDD948D48D14BD7447AAD37E35650F08AF4952116821A1' },
+            @{ Name = 'rtv-toolkit-v0.1.9.exe'; Url = 'https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.9-experimental/rtv-toolkit.exe'; Hash = '5E8D95FDA3208AECDA403CFFE68578E5965FD59B0145B71FD390C991F244EFA4' }
+          )
+          foreach ($asset in $assets) {
+            $path = Join-Path dist/fixture $asset.Name
+            Invoke-WebRequest -UseBasicParsing -Uri $asset.Url -OutFile $path
+            if ((Get-FileHash $path -Algorithm SHA256).Hash -ine $asset.Hash) { throw "Fixture hash mismatch: $($asset.Name)" }
+          }
+          if ((Get-FileHash dist/release/RtVRadarLoot.vmz -Algorithm SHA256).Hash -ine '66FD97A4C1487BE6688EF94B59EE709A3BAA8C7886C490D2F03AF7B8C395EEFC') { throw 'Radar VMZ changed' }
+      - name: Test exact release bytes in disposable Steam and per-user fixtures
+        shell: powershell
+        run: |
+          ./tests/installer/bundle-smoke.ps1 -ArchivePath ./dist/release/RtVRadarLoot.vmz -LoaderSourceDirectory ./dist/fixture -FakeToolkitPath ./dist/release/rtv-toolkit.exe -RenderedInstaller ./dist/release/setup-sobolyatnik.ps1 -RadarInstallerPath ./dist/fixture/install-sobolyatnik-v0.1.8.ps1 -UninstallerPath ./dist/release/uninstall-sobolyatnik.ps1 -PreviousBundleInstallerPath ./dist/fixture/setup-sobolyatnik-v0.1.9.ps1 -PreviousBundleToolkitPath ./dist/fixture/rtv-toolkit-v0.1.9.exe -PreviousBundleUninstallerPath ./dist/fixture/uninstall-sobolyatnik-v0.1.9.ps1 -TestIntegration -CheckToolkitHelp
+
+  publish:
+    needs: [prepare, smoke-bundle]
+    if: github.repository == 'jtburkh/Sobolyatnik-K'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: catalog-pinned-release-assets
+          path: dist/release
+      - name: Refuse to overwrite an existing versioned release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          status=$(curl -L -sS -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' 'https://api.github.com/repos/jtburkh/Sobolyatnik-K/releases/tags/v0.1.10-experimental')
+          test "$status" = 404 || { echo "Release already exists or GitHub API unavailable (HTTP $status); refusing to overwrite."; exit 1; }
+      - name: Print exact verified release asset hashes
+        run: sha256sum dist/release/*
+      - name: Publish new experimental prerelease (never overwrite older assets)
+        uses: softprops/action-gh-release@v2
+        with:
+          prerelease: true
+          draft: false
+          fail_on_unmatched_files: true
+          name: 'Sobolyatnik-K 0.1.10 Experimental — Build 2 inventory and radar colors'
+          body: |
+            Experimental bundle for Road to Vostok Steam build 25632875.
+            Windows Toolkit includes 263 Build 2 inventory entries (+15), 29
+            weapon-stat entries and terminal contact colors matching the in-game
+            overlay (enemies red, Nomads blue, bosses pink). The radar VMZ is
+            byte-for-byte the existing v0.1.8 tested archive. Never combine
+            this update with the diagnostic bridge or re-enable the AI hook.
+
+            For a clean game or radar-only v0.1.8 install, **close RTV** and
+            run this hash-pinned command in Windows PowerShell (not WSL):
+
+            ```powershell
+            $u='https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.10-experimental/setup-sobolyatnik.ps1'; $p=Join-Path $env:TEMP 'setup-sobolyatnik-v0.1.10.ps1'; Invoke-WebRequest -UseBasicParsing -Uri $u -OutFile $p; if ((Get-FileHash $p -Algorithm SHA256).Hash -ine '${{ needs.prepare.outputs.setup_sha256 }}') { throw 'Installer hash mismatch' }; & $p
+            ```
+
+            If v0.1.9 bundle is already installed, close RTV
+            and uninstall it via Windows Installed Apps before running v0.1.10
+            setup. Uninstall preserves Metro, saves, backups and game binaries;
+            v0.1.10 refuses to overwrite a v0.1.9 receipt or executable.
+            No general crash-free or cross-build clearance. Inventory metadata
+            is extracted from current game registrations, not a live inventory
+            slot/gameplay validation.
+          files: |
+            dist/release/RtVRadarLoot.vmz
+            dist/release/rtv-toolkit.exe
+            dist/release/setup-sobolyatnik.ps1
+            dist/release/uninstall-sobolyatnik.ps1

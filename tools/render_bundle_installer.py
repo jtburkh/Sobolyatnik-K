@@ -23,6 +23,8 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--toolkit", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--template", type=Path, default=TEMPLATE)
+    parser.add_argument("--uninstaller", type=Path, default=UNINSTALLER)
     args = parser.parse_args()
     executable = args.toolkit.read_bytes()
     if len(executable) < 512 or executable[:2] != b"MZ":
@@ -32,8 +34,8 @@ def main() -> None:
         raise SystemExit("invalid Windows executable PE header")
     if struct.unpack_from("<H", executable, pe_offset + 4)[0] != 0x8664:
         raise SystemExit("expected an x86-64 Windows executable")
-    template = TEMPLATE.read_bytes()
-    uninstaller = UNINSTALLER.read_bytes()
+    template = args.template.read_bytes()
+    uninstaller = args.uninstaller.read_bytes()
     for placeholder in (b"@TOOLKIT_SHA256@", b"@UNINSTALLER_SHA256@"):
         if template.count(placeholder) != 1:
             raise SystemExit(f"template must have exactly one {placeholder!r}")
