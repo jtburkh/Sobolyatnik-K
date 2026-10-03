@@ -1,13 +1,13 @@
 # Diagnostic telemetry bridge — developer-only lifecycle
 
 **Not the public radar installation guide.** For normal play, use the
-[install-first README](../README.md) and [radar-only Windows installer](windows-installer.md).
+[install-first README](../README.md) and [Windows radar + Toolkit bundle](windows-bundle.md).
 The bridge described below is quarantined diagnostic source; do not install it
 alongside Sobolyatnik-K.
 
 ## Packaging decision
 
-Sobolyatnik-K's Rust executable does **not** silently modify the Road to Vostok directory. The separately invoked, [published v0.1.8 experimental installer](windows-installer.md) installs official Metro 3.2.1 on a clean game and the exact radar VMZ. It does **not** install the Toolkit executable or uninstaller; those are being tested for a [separate release](windows-bundle.md). The 0.1.8 radar has one positive in-game transition session, **not** general crash clearance. `RtVTelemetryProof.vmz` is quarantined 0.8.3 diagnostic source, **not** a release asset. No stable release is offered while Build 2 stability work continues.
+Sobolyatnik-K's Rust executable does **not** silently modify the Road to Vostok directory. The separately invoked [v0.1.9 experimental bundle](windows-bundle.md) installs the Toolkit, the exact 0.1.8 radar VMZ and, on a clean game, official Metro 3.2.1. The old [v0.1.8 installer](windows-installer.md) remains radar-only. The 0.1.8 radar has one positive in-game transition session, **not** general crash clearance. `RtVTelemetryProof.vmz` is quarantined 0.8.3 diagnostic source, **not** a release asset. No stable release is offered while Build 2 stability work continues.
 
 Automatic embedded installation was evaluated and intentionally rejected:
 
@@ -18,7 +18,7 @@ Automatic embedded installation was evaluated and intentionally rejected:
 - native Windows, Proton, and WSL expose different installation paths;
 - an explicit copy is easy to inspect, reverse, and troubleshoot.
 
-The radar VMZ can be installed manually or via the published radar-only installer; it is not required for offline save editing. Never install the diagnostic bridge alongside the playable radar.
+The radar VMZ can be installed manually or via the published bundle or legacy radar-only installer; it is not required for offline save editing. Never install the diagnostic bridge alongside the playable radar.
 
 ## Build 2 crash investigation (0.8.3 tracing, not a release)
 

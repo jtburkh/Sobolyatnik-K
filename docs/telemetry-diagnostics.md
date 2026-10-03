@@ -1,4 +1,10 @@
-# Build 2 radar crash and inventory isolation — not a release procedure
+# Build 2 radar crash and inventory isolation — historical investigation
+
+**Not installation instructions or a live inventory of installed mods.** These
+notes record staged experiments over time; phrases like “currently installed”
+refer to the session being described. For the supported experimental download,
+use the [current radar + Toolkit guide](windows-bundle.md). No test here proves
+that the radar is universally crash-free.
 
 Three sessions with enabled 0.8.0 ended in the same native `RTV.exe` access
 violation (Steam build 25632875, `c0000005`, RVA `0x2b39803`, null read at
@@ -7,7 +13,7 @@ included several enemy/Nomad firefights without crashing. The later 0.8.2
 `player_only` diagnostic also coincided with inventory clicks acting like Fast
 Equip; inventory returned to normal after removing it and restarting. This
 points at mod-enabled behavior but does not identify a root cause. Both VMZs
-are quarantined outside the game; **the game `mods` directory is empty**.
+were quarantined outside the game; **at that stage** the `mods` directory was empty.
 
 The local dumps under `%LOCALAPPDATA%/CrashDumps/RTV.exe.*.dmp` are private;
 do not upload them without the owner's permission. F8 and disconnecting the

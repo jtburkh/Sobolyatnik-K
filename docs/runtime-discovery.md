@@ -1,5 +1,10 @@
 # Road to Vostok runtime discovery
 
+**Historical research, not a current installation guide.** Use the
+[Windows radar + Toolkit instructions](windows-bundle.md) for the published
+experimental bundle. Paths, hashes and references to what was installed below
+are snapshots of earlier investigations.
+
 This document preserves historical evidence from Steam build **22914619** (0.1.1.3). Its `AI.boss`, `/AI/Agents`, and `PlayFire` hook findings **do not apply** to Build 2 (25632875). See the Build 2 addendum below and `docs/telemetry-protocol.md` for the current candidate contract.
 
 ## Build examined

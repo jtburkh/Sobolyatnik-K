@@ -1,5 +1,11 @@
 # Runtime telemetry protocol
 
+**Protocol reference, not an installation guide.** The older diagnostic bridge
+may emit fields or accept commands described below that the playable 0.1.8
+radar intentionally does **not** enable. The [experimental Windows bundle](windows-bundle.md)
+installs the player/contact/loot radar, not the full diagnostic bridge; do not
+use `--spawn-*` with this radar. See [current limitations](telemetry-diagnostics.md).
+
 RtV Toolkit receives best-effort UDP datagrams from the Godot telemetry bridge. The default destination/listener is `127.0.0.1:47777`. JSON is used for version 1 so captures are human-readable; Rust decoding is behind the `PacketDecoder` trait so a later binary codec does not affect receiver, state, or radar code.
 
 ## Snapshot

@@ -1,20 +1,18 @@
 # Sobolyatnik-K — Sable Hunter 1L108K
 
-Sobolyatnik-K is a mod for the for **Road to Vostok**.  It includes an in-game RADAR with switches to change between tracking humans, their footsteps, and loot.  It also comes with a separate terminal user interface (TUI) (RtV Toolkit) for managing your character while the game is closed. This is an Unofficial mod and is not affiliated with the game developer.  Much appreciation to Antti for making a fun game! 
+Sobolyatnik-K is an unofficial mod for **Road to Vostok**: an in-game radar for tracking people, movement trails, and loot, plus the RtV Toolkit terminal app for managing your character while the game is closed. Not affiliated with the developer. Many thanks to Antti for making a fun game!
 
-## Install the radar (Windows / Steam)
+## Install the radar and Toolkit (Windows / Steam)
 
 Install Road to Vostok **Steam build 25632875**, close the game, then paste this **one line into PowerShell**:
 
 ```powershell
-$ErrorActionPreference='Stop'; $p=Join-Path $env:TEMP 'sobolyatnik-k-v0.1.8.ps1'; Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.8-experimental/install-sobolyatnik.ps1' -OutFile $p; if ((Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash -ne 'FC8B4D38F2373B750BD9457BD3D779A5CE613E541F6643AEFFD99634B3F0DF72') { throw 'Installer checksum mismatch; nothing was executed' }; & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $p
+$ErrorActionPreference='Stop'; $p=Join-Path $env:TEMP 'sobolyatnik-k-v0.1.9.ps1'; Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.9-experimental/setup-sobolyatnik.ps1' -OutFile $p; if ((Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash -ne 'C7F5D7BEB4355840875BB32CE7DDED0C0451B56E3D51B3B5648129BE6F91F2AC') { throw 'Installer checksum mismatch; nothing was executed' }; & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $p
 ```
 
-This command checks the installer hash **before running it**. The installer verifies its downloads, installs [official Metro Mod Loader 3.2.1](https://github.com/ametrocavich/vostok-mod-loader/releases/tag/v3.2.1) if neither loader file exists, and installs the [v0.1.8-experimental Sobolyatnik-K radar VMZ](https://github.com/jtburkh/Sobolyatnik-K/releases/tag/v0.1.8-experimental). It refuses unsupported builds, conflicting VMZs, and partial or incompatible Metro installations. An older radar VMZ is backed up before replacement. See [installer details and safeguards](docs/windows-installer.md).
+The command checks the setup script's SHA-256 **before running it**. The script verifies every download, installs [official Metro Mod Loader 3.2.1](https://github.com/ametrocavich/vostok-mod-loader/releases/tag/v3.2.1) if neither loader file exists, and installs the [v0.1.9-experimental bundle](https://github.com/jtburkh/Sobolyatnik-K/releases/tag/v0.1.9-experimental): the **unchanged 0.1.8 radar VMZ** and a Windows x64 `rtv-toolkit.exe`. It adds Start Menu launch/uninstall shortcuts and a Windows *Installed Apps* entry. A previous verified radar-only install is adopted without overwriting Metro's config; unsupported game builds or conflicting mods are refused. See [installation and safety details](docs/windows-bundle.md).
 
-**Current release (v0.1.8): radar only.** It does **not** install the separate `rtv-toolkit.exe` terminal application or provide an uninstall command. The radar works without the terminal. To remove it, **close the game**, then move `RtVRadarLoot.vmz` out of your Steam game's `mods` folder; leave Metro in place if other mods might use it. The installer does not edit saves or game binaries.
-
-A [new Windows bundle with the Toolkit and an uninstall option](docs/windows-bundle.md) is **being tested, not released**. Don't use a command for it until a separately tagged release and pinned installation instructions are published here; the v0.1.8 release and checksum above will not be changed.
+**Uninstall:** Close the game, then choose **Uninstall Sobolyatnik-K** from the Start Menu (or *Settings → Apps → Installed apps*). Only the verified radar VMZ and Toolkit are removed; Metro, saves, and rollback backups stay. The earlier [v0.1.8 radar-only installer](docs/windows-installer.md) did not provide an uninstaller, and its release was not changed.
 
 ![Concept illustration of the Sobolyatnik-K radar unit](assets/SOBOLYATNIK-K.png)
 
@@ -30,7 +28,7 @@ This is an **experimental Build 2** mod, not a promise of crash-free play. Gunsh
 
 The companion `rtv-toolkit` terminal program can inspect and edit character inventory and equipment, validate item placement, and check a save without opening its UI. **Close Road to Vostok before editing a save.** Before replacing a save, it checks for external changes and keeps a timestamped `.rtvbak.*` backup. Keep your own backup of important saves too.
 
-The Toolkit is **not bundled in the current experimental installer**. To use it now, [install Rust](https://rustup.rs/) and Git, then build it from source:
+The Windows Toolkit executable is included in the installer above and can be opened from **Start → Sobolyatnik-K → Sobolyatnik-K Toolkit**. For a source build instead, [install Rust](https://rustup.rs/) and Git:
 
 ```powershell
 git clone https://github.com/jtburkh/Sobolyatnik-K.git
