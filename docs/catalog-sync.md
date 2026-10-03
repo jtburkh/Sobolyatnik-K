@@ -3,10 +3,11 @@
 The current **source** catalog was derived read-only from Road to Vostok Steam
 build **25632875** (Godot 4.6.3). The Toolkit's catalog is compiled into its
 Rust executable: updating `data/*.json` in Git **does not update any already
-published `.exe`**. A separately versioned Windows release is needed before
-people using the current v0.1.9 executable receive these entries.
+published `.exe`**. The new [v0.1.11 Windows release](windows-bundle.md)
+contains this catalog; the earlier v0.1.9 executable remains unchanged and
+must be uninstalled before installing the new bundle.
 
-## What's new in Build 2 source
+## What's new in Build 2
 
 `data/catalog-manifest.json` records **305** game-registered resources: **263**
 inventory items and **42** furniture resources, including **29** weapon stats.
