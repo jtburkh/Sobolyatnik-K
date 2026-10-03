@@ -1,6 +1,6 @@
 # Legacy v0.1.8 installer: radar only
 
-**New installations:** use the [v0.1.11 radar + Windows Toolkit bundle](windows-bundle.md)
+**New installations:** use the [v0.1.12 Shot Alerts radar + Windows Toolkit bundle](windows-bundle.md)
 for a pinned one-line install and a safe uninstall option. This page is kept
 for people who deliberately want the earlier [v0.1.8 radar-only release](https://github.com/jtburkh/Sobolyatnik-K/releases/tag/v0.1.8-experimental).
 It installs Metro and the in-game radar, **not** the Toolkit or an uninstaller.

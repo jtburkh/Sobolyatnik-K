@@ -1,12 +1,13 @@
-# Human-AI shot markers: isolated candidate
+# Human-AI shot observer: design and limited evidence
 
-**Not a release or installation guide.** The published Windows bundle and its
-radar VMZ remain unchanged. Do not install `RtVRadarShotsCandidate.vmz` alongside
-the released VMZ or modify the real game without fresh owner approval and a
-verified rollback. Never test using the original save. One controlled,
-owner-driven gameplay session with a disposable copy of the save confirmed the
-corrected Shot Alerts behavior, but did **not** establish broad combat/crash
-safety.
+**For installation, use the [hash-verified v0.1.12 Windows bundle](windows-bundle.md).**
+The new published Shot Alerts VMZ is versioned separately; the old v0.1.8 and
+v0.1.11 assets and tags were not changed. `RtVRadarShotsCandidate.vmz` is an
+isolated development artifact, **not** a second mod to install alongside the
+release. Do not modify the real game or original save for experiments without
+fresh owner approval, a disposable save, and verified rollback. One controlled,
+owner-driven gameplay session confirmed corrected candidate behavior but did
+**not** establish broad combat/crash safety.
 
 ## Scope and source
 
@@ -36,8 +37,8 @@ safety.
   override F8. All other F7 modes retain their original behavior. No existing
   user configuration was changed.
 - False negatives are preferable to explosion false positives. A silent shot,
-  differently wired weapon clip or audio played before the candidate autoload
-  is ready will not be shown. The candidate emitted packets in two limited
+  differently wired weapon clip or audio played before the autoload
+  is ready will not be shown. The observer emitted packets in two limited
   Build 2 sessions; individual sounds were not independently correlated with
   visible muzzle flashes. Large numbers of nearby AI have not been profiled,
   and the old combat native-crash cause is still unknown.
@@ -45,8 +46,8 @@ safety.
 ## Safe offline checks
 
 ```bash
-python3 tools/test_radar_shots.py --engine /path/to/Godot_v4.6.3-stable_linux.x86_64
-python3 tools/package_radar_shots.py
+python3 tools/package_radar_shots_release.py
+python3 tools/test_radar_shots.py --engine /path/to/Godot_v4.6.3-stable_linux.x86_64 --release-archive
 cargo test --locked --all-targets
 ```
 
@@ -55,9 +56,12 @@ asserts one real clip-matched AI event, rejection of an explosion using the same
 attenuation settings plus mismatched/distant/player/vehicle sounds, fixed
 position, gradual opacity, expiry, scene cleanup, **Shot Alerts first by
 default** with a visible shot-only radar, unchanged other F7 layers (with and
-without loot), and F8 hide choice. The candidate package is written to
-`dist/probes/RtVRadarShotsCandidate.vmz`; packaging is **not**
-installation or release. The published rollback archive must keep its pinned
+without loot), and F8 hide choice. The versioned release archive is written to
+`dist/probes/RtVRadarShotsRelease.vmz` (SHA-256
+`6d2d06e55831f174483595d44fde6ba5c3a50f7fec183d2c66a5953ecb98efdd`).
+The older `tools/package_radar_shots.py` still produces an isolated candidate
+(`RtVRadarShotsCandidate.vmz`), not a second installed mod. Packaging alone
+does not install anything. The original rollback archive still has pinned
 SHA-256 `66fd97a4c1487be6688ef94b59ee709a3baa8c7886c490d2f03af7b8c395eefc`.
 
 ## Limited live evidence and rollback
@@ -87,5 +91,9 @@ two distinct AI shooters on Village. After RTV closed, the published VMZ,
 Metro override, game executable and entire original save directory were
 verified unchanged against pre-test copies and hashes. This validates the
 specific tested behavior, **not** longer combat stability, every weapon/audio
-case, or immunity to the previously observed native crash. No release has
-been published.
+case, or immunity to the previously observed native crash. The separately
+versioned [v0.1.12-experimental release](https://github.com/jtburkh/Sobolyatnik-K/releases/tag/v0.1.12-experimental)
+uses the same tested radar/observer code with a release manifest. Its exact
+published VMZ and Windows installer passed offline checks, Windows CI and an
+independent public-download fixture; the release archive was **not** installed
+in the original game as part of that fixture.

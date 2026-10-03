@@ -7,7 +7,7 @@ alongside Sobolyatnik-K.
 
 ## Packaging decision
 
-Sobolyatnik-K's Rust executable does **not** silently modify the Road to Vostok directory. The separately invoked [v0.1.11 experimental bundle](windows-bundle.md) installs the Toolkit, the exact 0.1.8 radar VMZ and, on a clean game, official Metro 3.2.1. The old [v0.1.8 installer](windows-installer.md) remains radar-only. The 0.1.8 radar has one positive in-game transition session, **not** general crash clearance. `RtVTelemetryProof.vmz` is quarantined 0.8.3 diagnostic source, **not** a release asset. No stable release is offered while Build 2 stability work continues.
+Sobolyatnik-K's Rust executable does **not** silently modify the Road to Vostok directory. The separately invoked [v0.1.12 experimental bundle](windows-bundle.md) installs the Toolkit, a new versioned Shot Alerts radar VMZ and, on a clean game, official Metro 3.2.1. The old [v0.1.8 installer](windows-installer.md) remains radar-only. Limited owner-approved Shot Alerts gameplay and installer fixtures are **not** general crash clearance. `RtVTelemetryProof.vmz` is quarantined 0.8.3 diagnostic source, **not** a release asset. No stable release is offered while Build 2 stability work continues.
 
 Automatic embedded installation was evaluated and intentionally rejected:
 

@@ -72,7 +72,7 @@ identities and avoid changing the user's config:
   `dist/held/RtVRadarControls-0.1.3-combat-passed.vmz`.
   F7 cycles AI+trails / AI-only / trails-only; F8 hides/shows drawing but
   does **not** stop collection or UDP. Neither script consumes game input.
-- `dist/probes/RtVRadarLoot.vmz`: **0.1.8 Sobolyatnik-K (Sable Hunter) Experimental — 1L108K** (installed; one positive Village↔Attic session, not general release clearance). Same
+- `dist/probes/RtVRadarLoot.vmz`: **0.1.8 Sobolyatnik-K (Sable Hunter) Experimental — 1L108K** (historical rollback VMZ; one positive Village↔Attic session, not general release clearance). Same
   controls/AI collector, plus an isolated 1 Hz scan of `Interactable` proxies
   for live `LootContainer` objects, with fresh reads of `storage`/`loot` for
   nonempty interactable containers. The radar draws **hollow** green unlocked,

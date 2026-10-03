@@ -7,10 +7,10 @@ Sobolyatnik-K is an unofficial mod for **Road to Vostok**: an in-game radar for 
 Install Road to Vostok **Steam build 25632875**, close the game, then paste this **one line into PowerShell**:
 
 ```powershell
-$ErrorActionPreference='Stop'; $p=Join-Path $env:TEMP 'sobolyatnik-k-v0.1.11.ps1'; Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.11-experimental/setup-sobolyatnik.ps1' -OutFile $p; if ((Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash -ne 'A2CBBFA5AA1D6CCC6DA9B664CAD29ECD9A0B1BC4FDA6054E29FDF4BE13E98388') { throw 'Installer checksum mismatch; nothing was executed' }; & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $p
+$ErrorActionPreference='Stop'; $p=Join-Path $env:TEMP 'sobolyatnik-k-v0.1.12.ps1'; Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.12-experimental/setup-sobolyatnik.ps1' -OutFile $p; if ((Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash -ne 'E4BED9C344E0FBE89492F4C833EAB0C3245CBBE6519109E0AED212F1A27F6775') { throw 'Installer checksum mismatch; nothing was executed' }; & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $p
 ```
 
-The command checks the setup script's SHA-256 **before running it**. The script verifies every download, installs [official Metro Mod Loader 3.2.1](https://github.com/ametrocavich/vostok-mod-loader/releases/tag/v3.2.1) if neither loader file exists, and installs the [v0.1.11-experimental bundle](https://github.com/jtburkh/Sobolyatnik-K/releases/tag/v0.1.11-experimental): the **unchanged 0.1.8 radar VMZ** and an updated Windows x64 `rtv-toolkit.exe`. It adds Start Menu launch/uninstall shortcuts and a Windows *Installed Apps* entry. A previous verified radar-only install is adopted without overwriting Metro's config; unsupported game builds or conflicting mods are refused. **Already installed v0.1.9?** Close the game and uninstall v0.1.9 from Windows *Installed Apps* before running this command; v0.1.11 will not overwrite its receipt or executable. Uninstall retains Metro, saves and backups. See [installation and safety details](docs/windows-bundle.md).
+The command checks the setup script's SHA-256 **before running it**. The script checks every download, installs [official Metro Mod Loader 3.2.1](https://github.com/ametrocavich/vostok-mod-loader/releases/tag/v3.2.1) if neither loader file exists, and installs the [**v0.1.12-experimental Shot Alerts bundle**](https://github.com/jtburkh/Sobolyatnik-K/releases/tag/v0.1.12-experimental): a **new** radar VMZ and Windows x64 `rtv-toolkit.exe`. It adds Start Menu launch/uninstall shortcuts and a Windows *Installed Apps* entry. A radar-only v0.1.8 installation can be adopted with a verified backup; unsupported builds and conflicting mods are refused. **Already installed the v0.1.9 or v0.1.11 bundle?** Close the game, uninstall that version from Windows *Installed Apps*, then run this command. Setup refuses to overwrite its receipt or executable. Uninstall retains Metro, saves and backups. See [installation and safety details](docs/windows-bundle.md).
 
 **Uninstall:** Close the game, then choose **Uninstall Sobolyatnik-K** from the Start Menu (or *Settings → Apps → Installed apps*). Only the verified radar VMZ and Toolkit are removed; Metro, saves, and rollback backups stay. The earlier [v0.1.8 radar-only installer](docs/windows-installer.md) did not provide an uninstaller, and its release was not changed.
 
@@ -20,19 +20,19 @@ The command checks the setup script's SHA-256 **before running it**. The script 
 
 ## What Sobolyatnik-K does in game
 
-The compact, dark tactical HUD shows **red enemies**, **blue Nomads**, short movement trails, and small **hollow loot markers**. `F7` cycles radar layers; `F8` hides or shows the drawing without stopping telemetry. The radar is independent of equipped inventory items and does not modify your character save.
+The compact, dark tactical HUD starts in the **visible, shot-only Shot Alerts** mode. `F7` cycles the other modes with **red enemies**, **blue Nomads**, **pink bosses**, movement trails and hollow loot markers; `F8` hides or shows the drawing without stopping telemetry. The radar is independent of equipped inventory items and does not modify your character save.
 
 ![Actual Road to Vostok gameplay in Village, with the Sobolyatnik-K radar HUD in the upper-right corner](assets/screenshots/in-game-village.webp)
 
-*Actual in-game screenshot, not the concept illustration above; the radar appears in the upper-right corner.*
+*Actual in-game screenshot from an earlier radar version, not the concept illustration above; the radar appears in the upper-right corner.*
 
-This is an **experimental Build 2** mod, not a promise of crash-free play. Gunshot telemetry, AI sensor/vision reads, the old artifact, and summon commands are **not** part of the **released** playable radar. Do not install the diagnostic bridge alongside it. See [stability and feature limitations](docs/telemetry-diagnostics.md).
+This is an **experimental Build 2** mod, not a promise of crash-free play. AI sensor/vision reads, the old artifact, and summon commands are **not** part of the released playable radar. Do not install the diagnostic bridge alongside it. See [stability and feature limitations](docs/telemetry-diagnostics.md).
 
-### Shot Alerts preview — source only, not in the installer above
+### Shot Alerts — included in v0.1.12
 
-An **unreleased** candidate makes **Shot Alerts** the first, visible radar mode: it shows only human-AI gunshots (enemies, Nomads and bosses) within 100 m as markers that fade over five seconds. The radar stays on screen between shots. `F7` then cycles through the existing All + Shots, AI Only, Trails Only and Loot Only views; `F8` hides/shows the radar. Player and vehicle shots are not included. The source-built Windows Toolkit also fades received shot markers.
+**Shot Alerts is the first, visible radar mode.** Only human-AI gunshots (enemies, Nomads and bosses) within 100 m appear as fixed-position markers that fade over five seconds. The radar itself stays on screen between shots. `F7` cycles **Shot Alerts → All + Shots → AI Only → Trails Only → Loot Only** and back (skipping Loot Only when disabled); `F8` hides/shows the radar. Player and vehicle shots are excluded. The included Windows Toolkit also fades received shot markers.
 
-A disposable-save, owner-driven Build 2 session confirmed the corrected mode works as designed and recorded 23 candidate shot packets. This is **not** broad combat/crash clearance. **The v0.1.11 installer and VMZ above do not include Shot Alerts; no new release has been published.** See the [isolated candidate, tests and limitations](docs/ai-shot-observer.md). Do not install its candidate VMZ beside the released radar.
+An owner-driven disposable-save Build 2 session confirmed the corrected candidate behavior and recorded 23 shot packets; the **published versioned VMZ** passed separate offline and Windows installer tests. This does **not** establish broad combat/crash safety or every weapon case. See the [observer design, tests and limitations](docs/ai-shot-observer.md). Do not install the separate source candidate VMZ beside the released radar.
 
 ## Toolkit: manage your character offline
 
@@ -52,9 +52,9 @@ cargo build --release
 .\target\release\rtv-toolkit.exe --check
 ```
 
-By default it looks for `Character.tres`; use `--save <path-to-Character.tres>` to choose another save. The **v0.1.11 executable includes [Build 2's derived inventory catalog](docs/catalog-sync.md)** (263 items, including 15 newly registered ones). The earlier v0.1.9 executable does not; install the new version to use those entries. Unknown item footprints are rejected rather than guessed. In-game slot behavior for every new item still needs a spot-check on a disposable save. Avoid `--spawn-*` commands with the current radar bridge. Run `rtv-toolkit.exe --help` for CLI options.
+By default it looks for `Character.tres`; use `--save <path-to-Character.tres>` to choose another save. The **v0.1.12 executable retains [Build 2's derived inventory catalog](docs/catalog-sync.md)** (263 items, including 15 newly registered ones). The earlier v0.1.9 executable does not; install the new version to use those entries. Unknown item footprints are rejected rather than guessed. In-game slot behavior for every new item still needs a spot-check on a disposable save. Avoid `--spawn-*` commands with the current radar bridge. Run `rtv-toolkit.exe --help` for CLI options.
 
-The terminal also has a live Radar tab (`4`) when telemetry is configured, but it is **not required** for the in-game HUD. The v0.1.11 Toolkit colors live enemy, Nomad, and boss contacts to match the in-game mod. See [telemetry configuration](docs/telemetry-installation.md) and the [protocol](docs/telemetry-protocol.md) for advanced Windows/WSL setups; do not expose the unauthenticated UDP listener outside a trusted machine.
+The terminal also has a live Radar tab (`4`) when telemetry is configured, but it is **not required** for the in-game HUD. The included Toolkit colors live enemy, Nomad, and boss contacts to match the in-game mod. See [telemetry configuration](docs/telemetry-installation.md) and the [protocol](docs/telemetry-protocol.md) for advanced Windows/WSL setups; do not expose the unauthenticated UDP listener outside a trusted machine.
 
 <details>
 <summary>See the Equipment, Inventory and live Radar panes</summary>
@@ -67,7 +67,7 @@ The terminal also has a live Radar tab (`4`) when telemetry is configured, but i
 
 ![Toolkit Inventory pane showing items and the placement grid; personal save path redacted](assets/screenshots/toolkit-inventory.png)
 
-**Radar:** example of live UDP telemetry alongside the in-game HUD. `LIVE` requires a running game with a matching local UDP address; gunshot readings are unavailable in this experimental build. The personal save path is redacted in all Toolkit screenshots.
+**Radar:** screenshot from the earlier v0.1.11 build. `LIVE` requires a running game with a matching local UDP address; the new v0.1.12 build additionally shows fading human-AI shot markers when such events are received. The personal save path is redacted in all Toolkit screenshots.
 
 ![Toolkit Radar pane showing enemy and Nomad contacts and nearby loot; personal save path redacted](assets/screenshots/toolkit-radar.png)
 
@@ -75,7 +75,7 @@ The terminal also has a live Radar tab (`4`) when telemetry is configured, but i
 
 ## Develop and verify
 
-To package the five isolated radar-lite variants from source, install Python 3 and run `python3 tools/package_radar_lite.py`. Only `dist/probes/RtVRadarLoot.vmz` matches the **released** playable radar; the other VMZs are diagnostic variants, not additional mods to install together. The separate Shot Alerts source candidate can be built with `python3 tools/package_radar_shots.py` and checked without the game using `python3 tools/test_radar_shots.py --engine /path/to/godot`; it is **not a release asset or a second mod to install alongside the published radar**. The [runtime research](docs/runtime-discovery.md) and [third-party notices](THIRD_PARTY_NOTICES.md) provide further context. Neither private saves, dumps, game binaries, nor local builds are in this repository.
+The [v0.1.12 release](https://github.com/jtburkh/Sobolyatnik-K/releases/tag/v0.1.12-experimental) includes the versioned Shot Alerts VMZ (`6d2d06e55831f174483595d44fde6ba5c3a50f7fec183d2c66a5953ecb98efdd`). Build it with `python3 tools/package_radar_shots_release.py`; for optional Godot 4.6.3 mock tests of the exact package use `python3 tools/test_radar_shots.py --engine /path/to/godot --release-archive`. The older `tools/package_radar_lite.py` produces the unchanged v0.1.8 rollback VMZ (`66fd97a4…`), **not** the current installer asset. Other probe VMZs, including the standalone Shot Alerts candidate, are not additional mods to install alongside the published radar. The [runtime research](docs/runtime-discovery.md) and [third-party notices](THIRD_PARTY_NOTICES.md) provide further context. Neither private saves, dumps, game binaries, nor local builds are in this repository.
 
 ```bash
 cargo fmt --all -- --check

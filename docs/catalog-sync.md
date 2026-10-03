@@ -3,9 +3,9 @@
 The current **source** catalog was derived read-only from Road to Vostok Steam
 build **25632875** (Godot 4.6.3). The Toolkit's catalog is compiled into its
 Rust executable: updating `data/*.json` in Git **does not update any already
-published `.exe`**. The new [v0.1.11 Windows release](windows-bundle.md)
-contains this catalog; the earlier v0.1.9 executable remains unchanged and
-must be uninstalled before installing the new bundle.
+published `.exe`**. Both v0.1.11 and the current [v0.1.12 Windows bundle](windows-bundle.md)
+contain this catalog; the earlier v0.1.9 executable remains unchanged. An
+existing v0.1.9 or v0.1.11 bundle must be uninstalled before installing v0.1.12.
 
 ## What's new in Build 2
 

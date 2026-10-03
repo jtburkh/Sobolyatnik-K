@@ -1,97 +1,98 @@
-# Sobolyatnik-K for Windows: radar + Toolkit
+# Sobolyatnik-K for Windows: Shot Alerts radar + Toolkit
 
-The [**v0.1.11-experimental** prerelease](https://github.com/jtburkh/Sobolyatnik-K/releases/tag/v0.1.11-experimental)
-installs the in-game radar, a **Windows x64 `rtv-toolkit.exe`**, and a safe
-uninstall option. It is experimental, **unsigned**, and tested only for Road to
-Vostok Steam build **25632875**. Install the game through Steam, **close it**,
-then paste this **one line into PowerShell**:
+The [**v0.1.12-experimental** prerelease](https://github.com/jtburkh/Sobolyatnik-K/releases/tag/v0.1.12-experimental)
+installs the **new Shot Alerts radar VMZ**, Windows x64 `rtv-toolkit.exe`, and a
+safe uninstall option. It is experimental, **unsigned**, and intended only for
+Road to Vostok Steam build **25632875**. Install the game through Steam,
+**close it**, then paste this **one line into PowerShell**:
 
 ```powershell
-$ErrorActionPreference='Stop'; $p=Join-Path $env:TEMP 'sobolyatnik-k-v0.1.11.ps1'; Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.11-experimental/setup-sobolyatnik.ps1' -OutFile $p; if ((Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash -ne 'A2CBBFA5AA1D6CCC6DA9B664CAD29ECD9A0B1BC4FDA6054E29FDF4BE13E98388') { throw 'Installer checksum mismatch; nothing was executed' }; & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $p
+$ErrorActionPreference='Stop'; $p=Join-Path $env:TEMP 'sobolyatnik-k-v0.1.12.ps1'; Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.12-experimental/setup-sobolyatnik.ps1' -OutFile $p; if ((Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash -ne 'E4BED9C344E0FBE89492F4C833EAB0C3245CBBE6519109E0AED212F1A27F6775') { throw 'Installer checksum mismatch; nothing was executed' }; & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $p
 ```
 
-The script is checked **before execution**. It downloads only pinned release
-assets, verifying the Toolkit (`c0d0d08528465d574666f3956a41d3ae7f17b810679bb9ae5f48dff8f2c732a3`),
-uninstaller (`27088abfc7d10040bf624fd79b47ca99dd7a7d2b0eb7c33310e91d41a044209d`),
-the [v0.1.8 radar installer](windows-installer.md)
-(`fc8b4d38f2373b750bd9457bd3d779a5ce613e541f6643aeffd99634b3f0df72`),
-and its radar VMZ (`66fd97a4c1487be6688ef94b59ee709a3baa8c7886c490d2f03af7b8c395eefc`).
-On a clean game, that pinned installer fetches and verifies both official
+The setup script is checked **before execution**. It verifies each release
+asset again before use: Shot Alerts VMZ
+`6d2d06e55831f174483595d44fde6ba5c3a50f7fec183d2c66a5953ecb98efdd`,
+Windows Toolkit `0a82b65014522d63a804fdcf577173b953e046e49d200681d1ddf1b33cba8bd7`,
+radar installer `cf66879c05c3a8404458e24b1e75f6943895c604a497398551db8535ba01c39d`,
+and uninstaller `9a0620b45a1c62395c2cf3dc897efcd30f9600a517e8922a648e1257cadcb877`.
+On a clean game, the pinned radar installer downloads and verifies both official
 [Metro Mod Loader 3.2.1 assets](https://github.com/ametrocavich/vostok-mod-loader/releases/tag/v3.2.1).
 Do not use an unversioned `irm | iex` command. The policy bypass applies only
-to the child process running this hash-verified script; it does not change the
-system execution policy.
+to the child process running this hash-verified setup, not to the system policy.
 
 ## After installation
 
-- Launch **Sobolyatnik-K Toolkit** from the Start Menu. It is also installed at
-  `%LOCALAPPDATA%\Programs\Sobolyatnik-K\rtv-toolkit.exe` for your Windows
-  account. The *in-game* radar works without opening this program. `F7` cycles
-  radar layers; `F8` hides drawing without stopping telemetry.
-- The Toolkit can inspect and edit your character's equipment and inventory
-  **while Road to Vostok is closed**. It keeps a timestamped save backup before
-  replacing a save. This **v0.1.11 executable includes the Build 2
-  [catalog](catalog-sync.md)** (263 inventory items, 15 new); the terminal radar
-  matches the in-game enemy/Nomad/boss contact colors. Keep your own save
-  backup and avoid the historical `--spawn-*` commands. Source-derived item
-  footprints are not a substitute for in-game slot testing.
-- Setup can adopt the exact previously installed v0.1.8 VMZ without rewriting
-  Metro's live `override.cfg`. It refuses different Metro versions, changed
-  loader scripts, partial loader installations, other installed VMZs, ambiguous
-  Steam paths, and a different Steam game build. A replaced radar VMZ receives
-  a hash-verified backup in `%LOCALAPPDATA%\Sobolyatnik-K\backups\`.
-- The executable is **not code-signed**. Windows may display a publisher or
-  SmartScreen warning. Verify the release source, hashes, and your trust in the
-  publisher before running it; never disable security software globally.
+- The in-game radar **starts visible in Shot Alerts**, with only human-AI shot
+  markers fading for five seconds. The panel stays visible between shots. `F7`
+  cycles Shot Alerts → All + Shots → AI Only → Trails Only → Loot Only (when
+  enabled); `F8` hides/shows the HUD. Player and vehicle shots are excluded.
+- Launch **Sobolyatnik-K Toolkit** from the Start Menu; it is also installed at
+  `%LOCALAPPDATA%\Programs\Sobolyatnik-K\rtv-toolkit.exe`. The in-game radar
+  works without opening the Toolkit. Live terminal radar and shot alerts need
+  the mod and Toolkit to use the same UDP address (normally `127.0.0.1:47777`).
+- Edit your character's equipment and inventory **only while Road to Vostok
+  is closed**. The Toolkit keeps a timestamped `.rtvbak.*` backup before
+  replacing a save. The Build 2 [catalog](catalog-sync.md) contains 263 derived
+  inventory items, 15 newly registered. Keep your own backups; some new slot
+  footprints still need a disposable-save in-game check. Avoid historical
+  `--spawn-*` commands.
+- A radar-only v0.1.8 installation can be adopted; if its VMZ differs, setup
+  saves a verified backup in `%LOCALAPPDATA%\Sobolyatnik-K\backups\`. It will
+  not rewrite an existing Metro `override.cfg`. Different Metro versions,
+  changed loader scripts, partial installations, other VMZs, ambiguous Steam
+  paths, and other game builds are refused.
+- The executable is **not code-signed**. Windows may show a publisher or
+  SmartScreen warning. Verify the release, hashes and publisher before running
+  it; never disable your security software globally.
 
-## Upgrade from v0.1.9
+## Upgrade from an older Windows bundle
 
-**Close the game.** Use Windows *Installed Apps* or the existing Start Menu
-**Uninstall Sobolyatnik-K** entry to remove the old bundle, then run the pinned
-v0.1.11 command above. The new installer **refuses to overwrite** a v0.1.9
-Toolkit/receipt; there is no in-place upgrade. Old uninstall removes its
-verified Toolkit and radar only, retaining Metro (including `override.cfg`),
-saves, backups and game binaries. If uninstall reports modified files or an
-unknown receipt, stop and inspect them rather than deleting anything by hand.
+**Close the game first.** If v0.1.9 or v0.1.11 is installed, use Windows
+*Installed Apps* or that version's existing Start Menu **Uninstall
+Sobolyatnik-K** entry. Then run the v0.1.12 setup command above. There is
+**no in-place bundle upgrade**: the new installer refuses to overwrite another
+version's receipt or Toolkit executable. The earlier version's uninstaller
+removes only its verified radar VMZ and Toolkit, retaining Metro (including
+`override.cfg`), saves, backups, and game binaries. If uninstall reports a
+modified file or unknown receipt, stop and investigate rather than deleting
+anything by hand. Previous versioned releases were **not changed**.
 
-## Remove it
+## Remove v0.1.12
 
 **Close the game first.** Use **Start → Sobolyatnik-K → Uninstall Sobolyatnik-K**
 or **Settings → Apps → Installed apps → Sobolyatnik-K (Experimental) → Uninstall**.
-The uninstaller reads a per-user receipt in
+The uninstaller checks its per-user receipt at
 `%LOCALAPPDATA%\Sobolyatnik-K\installed.json` and refuses to delete a VMZ or
-Toolkit executable whose hash has changed. It removes only this release's
-verified radar VMZ, Toolkit, shortcuts and Windows uninstall entry. It
-**leaves Metro** (other mods may depend on it), saves, and rollback backups
-alone. If the game is running, it stops without removing files.
-
-For the **older v0.1.8 radar-only installer**, no uninstall receipt or Toolkit
-exists: close the game and move `RtVRadarLoot.vmz` out of `mods` manually. Do
-not remove a shared Metro installation just to remove this mod.
+Toolkit whose hash has changed. It removes only this release's verified radar
+and Toolkit, shortcuts, and Windows uninstall entry; it leaves Metro, saves,
+backup archives and game binaries alone. It refuses to run while RTV is open.
+For the **old v0.1.8 radar-only installer**, which has no receipt or Toolkit,
+close RTV and move `RtVRadarLoot.vmz` out of `mods` manually; don't remove a
+shared Metro installation.
 
 ## Troubleshooting and evidence
 
 - If Steam updated the game, setup refuses builds other than **25632875**;
-  don't force an incompatible VMZ onto a newer build.
-- If a loader/mod/Toolkit file is modified or another mod owns a path, setup
-  or uninstall refuses to overwrite/delete unknown bytes. Inspect the files;
-  there is no force-delete option. If setup fails after installing the radar,
-  rerun the same installer instead of editing game files by hand.
-- Setup and uninstall never auto-elevate. Your Windows account must have write
-  access to the Steam game library. Neither script changes saves or game
-  binaries; installing Metro on a clean game **does** add its two startup files.
-- Windows CI compiled, ran and tested the executable and exercised installer,
-  Start Menu, Installed Apps, and removal on disposable Steam fixtures
-  ([v0.1.11 release workflow](https://github.com/jtburkh/Sobolyatnik-K/actions/runs/37095644880)).
-  All four public release assets were independently downloaded, hash-checked,
-  and run through a second disposable Windows fixture with `-NoIntegration`:
-  clean install, v0.1.8 adoption, v0.1.9 refusal/uninstall/reinstall,
-  `rtv-toolkit.exe --help`, and safe removal retained its synthetic save and
-  Metro. No real game or user save was changed. This is **not** a broad
-  real-game crash-clearance claim.
+  don't force an incompatible VMZ onto a new build.
+- If a file has changed or another mod owns a path, setup or uninstall will
+  refuse to overwrite/delete unknown bytes. There is no force-delete option.
+  If setup fails after installing the radar, investigate before retrying.
+- Setup and uninstall never auto-elevate. Your account must have write access
+  to the Steam library. Neither script changes saves or game binaries;
+  bootstrapping Metro on a clean game **does** add its two startup files.
+- [Windows CI for the tagged release](https://github.com/jtburkh/Sobolyatnik-K/actions/runs/37135568447)
+  built and tested the Windows Toolkit and exercised exact versioned release
+  assets on disposable Steam/Metro fixtures: clean install, radar-only
+  adoption, v0.1.11 refusal/uninstall/reinstall, hashes, Windows entries,
+  `rtv-toolkit.exe --help`, safe removal, and save/Metro retention. All five
+  public assets were independently downloaded, SHA-256 checked and tested in
+  a second disposable Windows fixture without desktop integration. Neither
+  that fixture nor the release workflow installed anything in the real game.
+  One earlier owner-approved candidate gameplay session confirmed Shot Alerts
+  behavior; it is **not** prolonged combat or native-crash clearance.
 
-See [telemetry configuration](telemetry-installation.md) for optional live
-terminal radar networking and [diagnostics](telemetry-diagnostics.md) for
-Build 2 limitations. The tested radar VMZ is byte-for-byte identical to the
-v0.1.8 release; gunshots, sensor/vision reads, and summon/artifact features
-remain unavailable.
+For optional terminal networking see [telemetry configuration](telemetry-installation.md).
+For implementation and test limits see [the shot observer](ai-shot-observer.md).
+Do not combine this mod with the diagnostic bridge or restore the obsolete
+`AI.PlayFire` hook.
