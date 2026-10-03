@@ -142,7 +142,7 @@ try {
         Check (-not (Test-Path -LiteralPath $radar) -and -not (Test-Path -LiteralPath $receipt)) 'v0.1.9 uninstall incomplete'
         Check ([IO.File]::ReadAllText($save) -eq 'fixture save: keep') 'Previous uninstall changed save'
         & $rendered @args | Out-Null
-        Check (([IO.File]::ReadAllText($receipt) | ConvertFrom-Json).Version -eq '0.1.10-experimental') 'New version receipt missing'
+        Check (([IO.File]::ReadAllText($receipt) | ConvertFrom-Json).Version -eq '0.1.11-experimental') 'New version receipt missing'
         if ($CheckToolkitHelp) {
             $helpText = & $installedExe --help | Out-String
             Check ($LASTEXITCODE -eq 0 -and $helpText -match 'rtv-toolkit --check') 'Upgraded Toolkit does not launch'

@@ -11,7 +11,7 @@ param([switch] $NoIntegration)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-$version = '0.1.10-experimental'
+$version = '0.1.11-experimental'
 $radarHash = '66fd97a4c1487be6688ef94b59ee709a3baa8c7886c490d2f03af7b8c395eefc'
 $stateDir = Join-Path $env:LOCALAPPDATA 'Sobolyatnik-K'
 $receiptPath = Join-Path $stateDir 'installed.json'

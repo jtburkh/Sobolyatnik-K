@@ -147,6 +147,19 @@ jobs:
         run: |
           Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.8-experimental/install-sobolyatnik.ps1' -OutFile dist/windows/install-sobolyatnik-v0.1.8.ps1
           if ((Get-FileHash dist/windows/install-sobolyatnik-v0.1.8.ps1 -Algorithm SHA256).Hash -ne 'FC8B4D38F2373B750BD9457BD3D779A5CE613E541F6643AEFFD99634B3F0DF72') { throw 'Legacy radar installer hash mismatch' }
+      - name: Obtain pinned v0.1.9 bundle for safe migration fixture
+        shell: powershell
+        run: |
+          $assets = @(
+            @{ Name = 'setup-sobolyatnik-v0.1.9.ps1'; Hash = 'C7F5D7BEB4355840875BB32CE7DDED0C0451B56E3D51B3B5648129BE6F91F2AC'; Remote = 'setup-sobolyatnik.ps1' },
+            @{ Name = 'uninstall-sobolyatnik-v0.1.9.ps1'; Hash = '38CAA7F514EC19E5BECDD948D48D14BD7447AAD37E35650F08AF4952116821A1'; Remote = 'uninstall-sobolyatnik.ps1' },
+            @{ Name = 'rtv-toolkit-v0.1.9.exe'; Hash = '5E8D95FDA3208AECDA403CFFE68578E5965FD59B0145B71FD390C991F244EFA4'; Remote = 'rtv-toolkit.exe' }
+          )
+          foreach ($asset in $assets) {
+            $path = Join-Path dist/windows $asset.Name
+            Invoke-WebRequest -UseBasicParsing -Uri ('https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.9-experimental/' + $asset.Remote) -OutFile $path
+            if ((Get-FileHash $path -Algorithm SHA256).Hash -ine $asset.Hash) { throw "Previous bundle asset hash mismatch: $($asset.Name)" }
+          }
       - name: Render reviewed bundle template with tested Windows EXE
         run: python tools/render_bundle_installer.py --toolkit dist/windows/rtv-toolkit.exe --output dist/windows/setup-sobolyatnik.ps1
       - name: Check complete legacy bundle, Windows entries, and safe uninstall
@@ -155,6 +168,6 @@ jobs:
       - name: Render and check new Build 2 bundle in disposable Steam fixture
         shell: powershell
         run: |
-          python tools/render_bundle_installer.py --toolkit dist/windows/rtv-toolkit.exe --template tools/setup-sobolyatnik-v0.1.10.ps1.in --uninstaller tools/uninstall-sobolyatnik-v0.1.10.ps1 --output dist/windows/setup-sobolyatnik-v0.1.10.ps1
+          python tools/render_bundle_installer.py --toolkit dist/windows/rtv-toolkit.exe --template tools/setup-sobolyatnik-v0.1.11.ps1.in --uninstaller tools/uninstall-sobolyatnik-v0.1.11.ps1 --output dist/windows/setup-sobolyatnik-v0.1.11.ps1
           if ($LASTEXITCODE -ne 0) { throw 'Unable to render Build 2 installer' }
-          ./tests/installer/bundle-smoke.ps1 -ArchivePath ./dist/probes/RtVRadarLoot.vmz -LoaderSourceDirectory ./dist/metro -FakeToolkitPath ./dist/windows/rtv-toolkit.exe -RenderedInstaller ./dist/windows/setup-sobolyatnik-v0.1.10.ps1 -RadarInstallerPath ./dist/windows/install-sobolyatnik-v0.1.8.ps1 -UninstallerPath ./tools/uninstall-sobolyatnik-v0.1.10.ps1 -TestIntegration -CheckToolkitHelp
+          ./tests/installer/bundle-smoke.ps1 -ArchivePath ./dist/probes/RtVRadarLoot.vmz -LoaderSourceDirectory ./dist/metro -FakeToolkitPath ./dist/windows/rtv-toolkit.exe -RenderedInstaller ./dist/windows/setup-sobolyatnik-v0.1.11.ps1 -RadarInstallerPath ./dist/windows/install-sobolyatnik-v0.1.8.ps1 -UninstallerPath ./tools/uninstall-sobolyatnik-v0.1.11.ps1 -PreviousBundleInstallerPath ./dist/windows/setup-sobolyatnik-v0.1.9.ps1 -PreviousBundleToolkitPath ./dist/windows/rtv-toolkit-v0.1.9.exe -PreviousBundleUninstallerPath ./dist/windows/uninstall-sobolyatnik-v0.1.9.ps1 -TestIntegration -CheckToolkitHelp

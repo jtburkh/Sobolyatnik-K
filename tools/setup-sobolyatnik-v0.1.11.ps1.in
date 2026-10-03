@@ -1,7 +1,7 @@
 #requires -Version 5.1
 <#
 .SYNOPSIS
-    Install Sobolyatnik-K 0.1.10 Experimental: the unchanged 0.1.8 radar,
+    Install Sobolyatnik-K 0.1.11 Experimental: the unchanged 0.1.8 radar,
     official Metro 3.2.1 if needed, and a per-user Windows Toolkit executable.
 .DESCRIPTION
     Both bundled scripts and the Toolkit executable are hash-pinned. Uninstall
@@ -23,13 +23,13 @@ param(
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-$version = '0.1.10-experimental'
+$version = '0.1.11-experimental'
 $toolkitHash = '@TOOLKIT_SHA256@'
 $uninstallerHash = '@UNINSTALLER_SHA256@'
 $radarHash = '66fd97a4c1487be6688ef94b59ee709a3baa8c7886c490d2f03af7b8c395eefc'
 $oldInstallerHash = 'fc8b4d38f2373b750bd9457bd3d779a5ce613e541f6643aeffd99634b3f0df72'
 $oldRelease = 'https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.8-experimental'
-$newRelease = 'https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.10-experimental'
+$newRelease = 'https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.11-experimental'
 $programDir = Join-Path $env:LOCALAPPDATA 'Programs\Sobolyatnik-K'
 $toolkitDest = Join-Path $programDir 'rtv-toolkit.exe'
 $uninstallerDest = Join-Path $programDir 'uninstall-sobolyatnik.ps1'
@@ -133,10 +133,11 @@ if ($Uninstall) {
 }
 $downloads = New-Object System.Collections.Generic.List[string]
 try {
+    # Refuse old/foreign receipts before any network access or game changes.
+    Assert-NoCollision
     $toolkitSource = Obtain $ToolkitPath ($newRelease + '/rtv-toolkit.exe') 'rtv-toolkit.exe' $toolkitHash
     $uninstallerSource = Obtain $UninstallerPath ($newRelease + '/uninstall-sobolyatnik.ps1') 'uninstall-sobolyatnik.ps1' $uninstallerHash
     $oldInstaller = Obtain $RadarInstallerPath ($oldRelease + '/install-sobolyatnik.ps1') 'radar-installer.ps1' $oldInstallerHash
-    Assert-NoCollision
 
     # The unchanged, separately pinned v0.1.8 installer owns Steam discovery,
     # game/build checks, loader validation, radar backup, and VMZ replacement.
@@ -191,7 +192,7 @@ try {
         $remove.Save()
         New-Item -Path $registry -Force | Out-Null
         New-ItemProperty -LiteralPath $registry -Name DisplayName -Value 'Sobolyatnik-K (Experimental)' -PropertyType String -Force | Out-Null
-        New-ItemProperty -LiteralPath $registry -Name DisplayVersion -Value '0.1.10' -PropertyType String -Force | Out-Null
+        New-ItemProperty -LiteralPath $registry -Name DisplayVersion -Value '0.1.11' -PropertyType String -Force | Out-Null
         New-ItemProperty -LiteralPath $registry -Name Publisher -Value 'Sobolyatnik-K project' -PropertyType String -Force | Out-Null
         New-ItemProperty -LiteralPath $registry -Name InstallLocation -Value $programDir -PropertyType String -Force | Out-Null
         New-ItemProperty -LiteralPath $registry -Name UninstallString -Value ('"' + (Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe') + '" -NoProfile -ExecutionPolicy Bypass -File "' + $uninstallerDest + '"') -PropertyType String -Force | Out-Null

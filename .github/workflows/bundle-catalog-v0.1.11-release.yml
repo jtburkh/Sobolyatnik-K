@@ -4,7 +4,7 @@ name: Build 2 catalog Windows bundle prerelease
 on:
   push:
     tags:
-      - v0.1.10-experimental
+      - v0.1.11-experimental
 
 permissions:
   contents: write
@@ -56,9 +56,9 @@ jobs:
           echo '66fd97a4c1487be6688ef94b59ee709a3baa8c7886c490d2f03af7b8c395eefc  dist/probes/RtVRadarLoot.vmz' | sha256sum -c -
           echo 'fc8b4d38f2373b750bd9457bd3d779a5ce613e541f6643aeffd99634b3f0df72  tools/install-sobolyatnik.ps1' | sha256sum -c -
           unzip -t dist/probes/RtVRadarLoot.vmz
-          python3 tools/render_bundle_installer.py --toolkit dist/release/rtv-toolkit.exe --template tools/setup-sobolyatnik-v0.1.10.ps1.in --uninstaller tools/uninstall-sobolyatnik-v0.1.10.ps1 --output dist/release/setup-sobolyatnik.ps1
-          cp dist/probes/RtVRadarLoot.vmz tools/uninstall-sobolyatnik-v0.1.10.ps1 dist/release/
-          mv dist/release/uninstall-sobolyatnik-v0.1.10.ps1 dist/release/uninstall-sobolyatnik.ps1
+          python3 tools/render_bundle_installer.py --toolkit dist/release/rtv-toolkit.exe --template tools/setup-sobolyatnik-v0.1.11.ps1.in --uninstaller tools/uninstall-sobolyatnik-v0.1.11.ps1 --output dist/release/setup-sobolyatnik.ps1
+          cp dist/probes/RtVRadarLoot.vmz tools/uninstall-sobolyatnik-v0.1.11.ps1 dist/release/
+          mv dist/release/uninstall-sobolyatnik-v0.1.11.ps1 dist/release/uninstall-sobolyatnik.ps1
           sha256sum dist/release/*
       - name: Record exact executable installer hash for release notes
         id: asset-hashes
@@ -117,7 +117,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          status=$(curl -L -sS -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' 'https://api.github.com/repos/jtburkh/Sobolyatnik-K/releases/tags/v0.1.10-experimental')
+          status=$(curl -L -sS -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' 'https://api.github.com/repos/jtburkh/Sobolyatnik-K/releases/tags/v0.1.11-experimental')
           test "$status" = 404 || { echo "Release already exists or GitHub API unavailable (HTTP $status); refusing to overwrite."; exit 1; }
       - name: Print exact verified release asset hashes
         run: sha256sum dist/release/*
@@ -127,7 +127,7 @@ jobs:
           prerelease: true
           draft: false
           fail_on_unmatched_files: true
-          name: 'Sobolyatnik-K 0.1.10 Experimental — Build 2 inventory and radar colors'
+          name: 'Sobolyatnik-K 0.1.11 Experimental — Build 2 inventory and radar colors'
           body: |
             Experimental bundle for Road to Vostok Steam build 25632875.
             Windows Toolkit includes 263 Build 2 inventory entries (+15), 29
@@ -140,13 +140,13 @@ jobs:
             run this hash-pinned command in Windows PowerShell (not WSL):
 
             ```powershell
-            $u='https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.10-experimental/setup-sobolyatnik.ps1'; $p=Join-Path $env:TEMP 'setup-sobolyatnik-v0.1.10.ps1'; Invoke-WebRequest -UseBasicParsing -Uri $u -OutFile $p; if ((Get-FileHash $p -Algorithm SHA256).Hash -ine '${{ needs.prepare.outputs.setup_sha256 }}') { throw 'Installer hash mismatch' }; & $p
+            $u='https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.11-experimental/setup-sobolyatnik.ps1'; $p=Join-Path $env:TEMP 'setup-sobolyatnik-v0.1.11.ps1'; Invoke-WebRequest -UseBasicParsing -Uri $u -OutFile $p; if ((Get-FileHash $p -Algorithm SHA256).Hash -ine '${{ needs.prepare.outputs.setup_sha256 }}') { throw 'Installer hash mismatch' }; & $p
             ```
 
             If v0.1.9 bundle is already installed, close RTV
-            and uninstall it via Windows Installed Apps before running v0.1.10
+            and uninstall it via Windows Installed Apps before running v0.1.11
             setup. Uninstall preserves Metro, saves, backups and game binaries;
-            v0.1.10 refuses to overwrite a v0.1.9 receipt or executable.
+            v0.1.11 refuses to overwrite a v0.1.9 receipt or executable.
             No general crash-free or cross-build clearance. Inventory metadata
             is extracted from current game registrations, not a live inventory
             slot/gameplay validation.
