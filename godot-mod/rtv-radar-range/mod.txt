@@ -1,7 +1,7 @@
 [mod]
 name="Sobolyatnik-K Range Preview (Offline Candidate) — 1L108K"
 id="rtv_toolkit_radar_range_candidate"
-version="0.1.14-experimental.1"
+version="0.1.15-experimental.1"
 priority=0
 
 [autoload]

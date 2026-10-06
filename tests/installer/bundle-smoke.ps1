@@ -51,7 +51,7 @@ try {
     New-Item -ItemType Directory -Force -Path $game, $env:LOCALAPPDATA, $env:APPDATA | Out-Null
     [IO.File]::WriteAllText((Join-Path $game 'RTV.exe'), 'fixture game binary')
     [IO.File]::WriteAllText((Join-Path $game 'RTV.pck'), 'fixture game archive')
-    [IO.File]::WriteAllText((Join-Path $gameApps 'appmanifest_1963610.acf'), '"installdir" "Road to Vostok"' + "`n" + '"buildid" "' + $ExpectedGameBuild + '"')
+    [IO.File]::WriteAllText((Join-Path $gameApps 'appmanifest_1963610.acf'), '"appid" "1963610"' + "`n" + '"installdir" "Road to Vostok"' + "`n" + '"buildid" "' + $ExpectedGameBuild + '"')
     # A small synthetic PE header; only disposable file handling is tested here.
     # The real compiled Toolkit is built, executed and archived on Windows CI.
     $fakeExe = Join-Path $root 'rtv-toolkit.exe'
@@ -145,11 +145,11 @@ try {
         }
         if (-not $TestIntegration) { $oldArgs.NoIntegration = $true }
         if ($PreviousBundleGameBuild) {
-            [IO.File]::WriteAllText((Join-Path $gameApps 'appmanifest_1963610.acf'), '"installdir" "Road to Vostok"' + "`n" + '"buildid" "' + $PreviousBundleGameBuild + '"')
+            [IO.File]::WriteAllText((Join-Path $gameApps 'appmanifest_1963610.acf'), '"appid" "1963610"' + "`n" + '"installdir" "Road to Vostok"' + "`n" + '"buildid" "' + $PreviousBundleGameBuild + '"')
         }
         & $oldBundle @oldArgs | Out-Null
         if ($PreviousBundleGameBuild) {
-            [IO.File]::WriteAllText((Join-Path $gameApps 'appmanifest_1963610.acf'), '"installdir" "Road to Vostok"' + "`n" + '"buildid" "' + $ExpectedGameBuild + '"')
+            [IO.File]::WriteAllText((Join-Path $gameApps 'appmanifest_1963610.acf'), '"appid" "1963610"' + "`n" + '"installdir" "Road to Vostok"' + "`n" + '"buildid" "' + $ExpectedGameBuild + '"')
         }
         Check (([IO.File]::ReadAllText($receipt) | ConvertFrom-Json).Version -eq $PreviousBundleVersion) 'Previous bundle receipt missing'
         $previousHash = (Get-FileHash $installedExe -Algorithm SHA256).Hash

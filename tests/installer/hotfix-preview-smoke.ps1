@@ -41,13 +41,29 @@ try {
     [IO.File]::WriteAllText((Join-Path $game 'RTV.exe'), 'untouched fixture binary')
     [IO.File]::WriteAllText((Join-Path $game 'RTV.pck'), 'untouched fixture archive')
     [IO.File]::WriteAllText($save, 'untouched synthetic save')
-    [IO.File]::WriteAllText($manifest, '"installdir" "Road to Vostok"' + "`n" + '"buildid" "25632875"')
+    $manifestPrefix = '"appid" "1963610"' + "`n" + '"installdir" "Road to Vostok"' + "`n"
     Check ((Get-FileHash -LiteralPath (Join-Path $fixtureKit 'metro/modloader.gd') -Algorithm SHA256).Hash -eq (Get-FileHash -LiteralPath (Join-Path $loader 'modloader.gd') -Algorithm SHA256).Hash) 'Bundled Metro differs from verified official fixture'
     $fixtureArgs = @{ GamePath = $game; NoIntegration = (-not $TestIntegration) }
-    Fails { & $runner @fixtureArgs -DryRun } 'Steam build 25710663 is required'
-    Fails { & $runner @fixtureArgs } 'Steam build 25710663 is required'
-    Check (-not (Test-Path -LiteralPath $radar) -and -not (Test-Path -LiteralPath $receipt)) 'Unsupported build wrote installation files'
-    [IO.File]::WriteAllText($manifest, '"installdir" "Road to Vostok"' + "`n" + '"buildid" "25710663"')
+    foreach ($otherBuild in @('25632875', '25799999')) {
+        [IO.File]::WriteAllText($manifest, $manifestPrefix + '"buildid" "' + $otherBuild + '"')
+        $expectedWarning = 'build ' + $otherBuild + ' differs from the reviewed build 25710663'
+        $warning = & $runner @fixtureArgs -DryRun 3>&1 | Out-String
+        Check ($warning -match [regex]::Escape($expectedWarning)) "Steam build $otherBuild did not warn in dry run"
+        Check (-not (Test-Path -LiteralPath $radar) -and -not (Test-Path -LiteralPath $receipt)) 'Mismatched-build dry run wrote installation files'
+        $warning = & $runner @fixtureArgs 3>&1 | Out-String
+        Check ($warning -match [regex]::Escape($expectedWarning)) "Steam build $otherBuild did not warn on install"
+        Check ((Get-FileHash -LiteralPath $radar -Algorithm SHA256).Hash -eq $archiveHash) 'Other valid Steam build did not install the verified radar'
+        Check ((Get-FileHash -LiteralPath $tool -Algorithm SHA256).Hash -eq $exeHash) 'Other valid Steam build did not install the verified Toolkit'
+        & $runner @fixtureArgs -Uninstall | Out-Null
+        Check (-not (Test-Path -LiteralPath $radar) -and -not (Test-Path -LiteralPath $receipt)) 'Mismatch-install uninstall failed'
+    }
+    [IO.File]::WriteAllText($manifest, $manifestPrefix + '"buildid" "invalid"')
+    Fails { & $runner @fixtureArgs -DryRun } 'build ID missing or invalid'
+    [IO.File]::WriteAllText($manifest, '"appid" "999"' + "`n" + '"buildid" "25710663"')
+    Fails { & $runner @fixtureArgs -DryRun } 'not for Road to Vostok'
+    Remove-Item -LiteralPath $manifest -Force
+    Fails { & $runner @fixtureArgs -DryRun } 'appmanifest not found'
+    [IO.File]::WriteAllText($manifest, $manifestPrefix + '"buildid" "25710663"')
     Remove-Item -LiteralPath $vmz -Force
     Fails { & $runner @fixtureArgs -DryRun } 'incomplete'
     Copy-Item -LiteralPath (Join-Path $kit 'RtVRadarLoot.vmz') -Destination $vmz -Force
@@ -81,7 +97,7 @@ try {
     Check ([IO.File]::ReadAllText((Join-Path $game 'RTV.pck')) -eq 'untouched fixture archive') 'Game archive was modified'
     Check ((Get-FileHash -LiteralPath (Join-Path $game 'modloader.gd') -Algorithm SHA256).Hash -eq '60FCF7FEEC0A47C6472E3B7A190B46987B374618AE3D149C081B222542BC6135') 'Uninstall changed Metro'
     Check ((Get-FileHash -LiteralPath (Join-Path $game 'override.cfg') -Algorithm SHA256).Hash -eq '9750A66FCF0CB1D9BF84284271F52E064F455CDD5A1CDC4981A007E4011A684B') 'Uninstall changed Metro override'
-    Write-Host 'HOTFIX TEST KIT OK: wrong build, missing/tampered assets, dry run, install, EXE/version, uninstall, Metro/save/binary preservation.'
+    Write-Host 'WINDOWS BUNDLE OK: valid other-build warning/install, malformed/missing manifest refusal, dry run, hashes, install, uninstall, Metro/save/binary preservation.'
 } finally {
     $env:LOCALAPPDATA = $oldLocal
     $env:APPDATA = $oldApp

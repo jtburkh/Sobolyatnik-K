@@ -39,8 +39,8 @@ def replace_once(text: str, old: str, new: str) -> str:
 
 def version() -> str:
     package_version = tomllib.loads((ROOT / "Cargo.toml").read_text())["package"]["version"]
-    if package_version != "0.1.14-experimental.1":
-        raise ValueError("expected the separately versioned 0.1.14-experimental.1 player release")
+    if package_version != "0.1.15-experimental.1":
+        raise ValueError("expected the separately versioned 0.1.15-experimental.1 player release")
     manifest = (SOURCE / "mod.txt").read_text()
     if f'version="{package_version}"' not in manifest:
         raise ValueError("Toolkit and candidate radar manifest versions differ")
@@ -109,6 +109,33 @@ def generate(kit: Path, toolkit: Path, metro: Path) -> dict[str, str]:
         ("Launch Road to Vostok. F7 cycles radar layers; F8 hides/shows the overlay.", "Launch Road to Vostok. F7 cycles radar modes, F8 hides/shows it, and F9 changes the view range."),
     ):
         radar = replace_once(radar, old, new)
+    # Keep published v0.1.12 immutable: only the new, locally generated installer
+    # changes from an exact-build refusal to an advisory warning. Missing or
+    # malformed manifests still fail closed, and all file/ownership checks stay.
+    radar = replace_once(
+        radar,
+        "    if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf) -or\n"
+        "        (Get-VdfField ([IO.File]::ReadAllText($manifestPath)) 'buildid') -ne $expectedBuild) {\n"
+        "        throw \"Steam build $expectedBuild is required. Check $manifestPath before installing onto a different game build.\"\n"
+        "    }",
+        "    if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {\n"
+        "        throw \"Steam appmanifest not found at $manifestPath; no files were installed.\"\n"
+        "    }\n"
+        "    $steamManifest = [IO.File]::ReadAllText($manifestPath)\n"
+        "    $appIds = [regex]::Matches($steamManifest, '(?m)^\\s*\"appid\"\\s*\"([^\"\\r\\n]*)\"')\n"
+        "    if ($appIds.Count -ne 1 -or $appIds[0].Groups[1].Value -ne '1963610') {\n"
+        "        throw \"Steam appmanifest is not for Road to Vostok: $manifestPath; no files were installed.\"\n"
+        "    }\n"
+        "    $buildIds = [regex]::Matches($steamManifest, '(?m)^\\s*\"buildid\"\\s*\"([^\"\\r\\n]*)\"')\n"
+        "    if ($buildIds.Count -ne 1 -or $buildIds[0].Groups[1].Value -notmatch '^[1-9][0-9]*$') {\n"
+        "        throw \"Steam build ID missing or invalid in $manifestPath; no files were installed.\"\n"
+        "    }\n"
+        "    $installedBuild = $buildIds[0].Groups[1].Value\n"
+        "    if ($installedBuild -ne $expectedBuild) {\n"
+        "        Write-Warning \"Road to Vostok Steam build $installedBuild differs from the reviewed build $expectedBuild. "
+        "Compatibility is unverified. Continuing installation at your risk; keep a backup of important saves.\"\n"
+        "    }",
+    )
     (kit / "install-sobolyatnik.ps1").write_text(radar, encoding="utf-8", newline="\n")
     radar_installer_hash = sha256(radar.encode("utf-8"))
 
@@ -141,11 +168,11 @@ def generate(kit: Path, toolkit: Path, metro: Path) -> dict[str, str]:
         f"Sobolyatnik-K {kit_version} experimental Windows bundle for Road to Vostok Steam build {BUILD_ID}.",
         "Includes the in-game Shot Alerts radar, selectable 50/100/200/400m views, and Windows Toolkit.",
         "Close Road to Vostok before installing or editing saves. Back up important saves first.",
-        "Download the ZIP and checksum from the v0.1.14-experimental.1 GitHub release; verify before extracting.",
+        "Download the ZIP and checksum from the v0.1.15-experimental.1 GitHub release; verify before extracting.",
         "Extract the entire ZIP including the metro folder into one folder on Windows.",
         "From PowerShell in that folder, first run: .\\run-sobolyatnik.ps1 -DryRun",
         "After reviewing paths, install: .\\run-sobolyatnik.ps1",
-        "If Steam updates again, the installer refuses; do not change the build guard.",
+        "If the Steam build differs from the reviewed build, the installer warns but allows installation. Compatibility is unverified.",
         "To uninstall, close the game and Toolkit, then run: .\\run-sobolyatnik.ps1 -Uninstall",
         "Uninstall retains Metro, character saves and rollback copies.",
         "First release on this game build: gameplay stability is not yet broadly established. Report bugs with redacted logs.",

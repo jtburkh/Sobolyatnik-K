@@ -41,6 +41,10 @@ class HotfixKitTests(unittest.TestCase):
             self.assertIn("$downloadUrl = ''", radar)
             self.assertIn("if (-not $ArchivePath)", radar)
             self.assertIn("$expectedBuild = '25710663'", radar)
+            self.assertIn('Write-Warning "Road to Vostok Steam build $installedBuild differs', radar)
+            self.assertIn('Steam appmanifest not found', radar)
+            self.assertIn('Steam build ID missing or invalid', radar)
+            self.assertNotIn('Steam build $expectedBuild is required', radar)
             self.assertNotIn("@TOOLKIT_SHA256@", setup)
             self.assertNotIn("@UNINSTALLER_SHA256@", setup)
             with ZipFile(kit / "RtVRadarLoot.vmz") as vmz:
