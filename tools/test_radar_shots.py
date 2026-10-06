@@ -23,12 +23,14 @@ def main() -> None:
     packages = parser.add_mutually_exclusive_group()
     packages.add_argument("--release-archive", action="store_true", help="exercise the immutable v0.1.12 VMZ")
     packages.add_argument("--range-preview", action="store_true", help="exercise the separate uninstalled F9-range VMZ")
+    packages.add_argument("--player-bundle", type=Path, help="exercise an assembled player VMZ, including legacy user preferences")
     args = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix="rtv-radar-shots-mock-") as work:
         project = Path(work)
         (project / "project.godot").write_text('[application]\nconfig/name="AI Shot Observer Mock"\n')
-        if args.release_archive or args.range_preview:
-            with ZipFile(RANGE_ARCHIVE if args.range_preview else RELEASE_ARCHIVE) as archive:
+        if args.release_archive or args.range_preview or args.player_bundle:
+            archive_path = args.player_bundle or (RANGE_ARCHIVE if args.range_preview else RELEASE_ARCHIVE)
+            with ZipFile(archive_path) as archive:
                 for name in ("RtVRadarLite.gd", "RtVRadarShotBridge.gd", "RtVRadarLiteOverlay.gd"):
                     (project / name).write_bytes(archive.read(name))
         else:
@@ -43,16 +45,24 @@ def main() -> None:
         for script in (ROOT / "tests" / "radar-shots" / "Scripts").glob("*.gd"):
             shutil.copyfile(script, scripts / script.name)
         shutil.copyfile(ROOT / "tests" / "radar-shots" / "shot-smoke.gd", project / "shot-smoke.gd")
-        if args.range_preview:
+        if args.range_preview or args.player_bundle:
             shutil.copyfile(ROOT / "tests" / "radar-shots" / "range-smoke.gd", project / "range-smoke.gd")
         env = os.environ.copy()
         env["XDG_DATA_HOME"] = str(project / "user-data")
-        scripts = ("shot-smoke.gd", "range-smoke.gd") if args.range_preview else ("shot-smoke.gd",)
+        scripts = ("shot-smoke.gd", "range-smoke.gd") if args.range_preview or args.player_bundle else ("shot-smoke.gd",)
+        configs = [(False, False), (True, False)]
+        if args.player_bundle:
+            configs.extend(((False, True), (True, True)))
         for smoke in scripts:
-            for no_loot in (False, True):
+            for no_loot, legacy_disabled in configs:
                 command = [str(args.engine.resolve()), "--headless", "--path", str(project), "--script", f"res://{smoke}"]
+                extra_args = []
                 if no_loot:
-                    command.extend(("--", "--no-loot"))
+                    extra_args.append("--no-loot")
+                if legacy_disabled:
+                    extra_args.append("--legacy-disabled")
+                if extra_args:
+                    command.extend(("--", *extra_args))
                 try:
                     result = subprocess.run(
                         command, capture_output=True, text=True, check=False, timeout=30, env=env,
@@ -68,6 +78,7 @@ def main() -> None:
                 markers = (
                     "RANGE SMOKE OK: default 100m, 50/100/200/400m F9 cycle, cutoff and UI hint",
                     "RANGE SMOKE OK: fixed shots, five-second fade, F7/F8 and both loot configurations",
+                    "RANGE SMOKE OK: real queued Godot F9 input and persistent HUD label",
                 ) if smoke == "range-smoke.gd" else (
                     "SHOT SMOKE OK: AI fire sound observed once at its muzzle",
                     "SHOT SMOKE OK: enemy, Nomad and boss AI included",

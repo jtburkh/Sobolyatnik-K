@@ -39,13 +39,13 @@ func _run() -> void:
 	enemies.add_child(agent)
 
 	var no_loot := OS.get_cmdline_user_args().has("--no-loot")
-	if no_loot:
-		var config := FileAccess.open("user://rtv-telemetry.cfg", FileAccess.WRITE)
-		if config == null:
-			_fail("Could not create mock loot-disabled preference")
-			return
-		config.store_string("[radar_lite]\nloot=false\n")
-		config.close()
+	var legacy_disabled := OS.get_cmdline_user_args().has("--legacy-disabled")
+	var preference := FileAccess.open("user://rtv-telemetry.cfg", FileAccess.WRITE)
+	if preference == null:
+		_fail("Could not create mock radar preference")
+		return
+	preference.store_string("[radar_lite]\nloot=%s\n%s" % [str(not no_loot).to_lower(), "overlay=false\ncontrols=false\n" if legacy_disabled else ""])
+	preference.close()
 	var receiver := PacketPeerUDP.new()
 	if receiver.bind(0, "127.0.0.1") != OK:
 		_fail("UDP bind failed")

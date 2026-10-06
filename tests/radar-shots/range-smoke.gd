@@ -18,7 +18,8 @@ func _run() -> void:
 	if config == null:
 		_fail("Could not create mock radar preference")
 		return
-	config.store_string("[radar_lite]\nloot=%s\n" % str(not no_loot).to_lower())
+	var legacy_disabled := OS.get_cmdline_user_args().has("--legacy-disabled")
+	config.store_string("[radar_lite]\nloot=%s\n%s" % [str(not no_loot).to_lower(), "overlay=false\ncontrols=false\n" if legacy_disabled else ""])
 	config.close()
 	var bridge: Node = load("res://RtVRadarShotBridge.gd").new()
 	root.add_child(bridge)
@@ -31,14 +32,18 @@ func _run() -> void:
 	if not is_equal_approx(overlay.call("get_range_metres"), 100.0):
 		_fail("Default detection radius should be 100m")
 		return
+	var persistent_hint: Label = bridge.get("_range_hint")
+	if persistent_hint == null or not persistent_hint.visible or persistent_hint.text != "F9 TOGGLE DISTANCE  100m" or persistent_hint.mouse_filter != Control.MOUSE_FILTER_IGNORE:
+		_fail("HUD must always show a readable F9 control and selected distance")
+		return
 	var origin := [0.0, 0.0, 0.0]
 	if overlay.call("_project", Vector2(100.0, 0.0), origin, 0.0) == null or overlay.call("_project", Vector2(100.01, 0.0), origin, 0.0) != null:
 		_fail("100m display cutoff did not include the boundary")
 		return
 	for expected in [200.0, 400.0, 50.0, 100.0]:
 		bridge.call("_poll_range_key", true)
-		if not is_equal_approx(overlay.call("get_range_metres"), expected):
-			_fail("F9 did not cycle to %dm" % int(expected))
+		if not is_equal_approx(overlay.call("get_range_metres"), expected) or persistent_hint.text != "F9 TOGGLE DISTANCE  %dm" % int(expected):
+			_fail("F9 did not cycle or visibly confirm %dm" % int(expected))
 			return
 		bridge.call("_poll_range_key", true)
 		if not is_equal_approx(overlay.call("get_range_metres"), expected):
@@ -71,8 +76,8 @@ func _run() -> void:
 		_fail("Shot position or fade changed when range widened")
 		return
 	bridge.call("_poll_radar_keys", false, true)
-	if overlay.visible:
-		_fail("F8 did not hide the radar")
+	if overlay.visible or persistent_hint.visible:
+		_fail("F8 did not hide the radar and persistent control hint")
 		return
 	bridge.call("_poll_range_key", true)
 	bridge.call("_poll_range_key", false)
@@ -81,7 +86,7 @@ func _run() -> void:
 		return
 	bridge.call("_poll_radar_keys", false, false)
 	bridge.call("_poll_radar_keys", false, true)
-	if not overlay.visible or int(overlay.get("_layer_mode")) != 0 or not is_equal_approx(overlay.call("get_range_metres"), 400.0):
+	if not overlay.visible or not persistent_hint.visible or int(overlay.get("_layer_mode")) != 0 or not is_equal_approx(overlay.call("get_range_metres"), 400.0):
 		_fail("F8 did not restore Shot Alerts and the selected range")
 		return
 	bridge.call("_poll_radar_keys", false, false)
@@ -90,6 +95,26 @@ func _run() -> void:
 		_fail("F7 mode cycle changed when F9 was added")
 		return
 	print("RANGE SMOKE OK: fixed shots, five-second fade, F7/F8 and both loot configurations")
+	# Exercise the real Godot event queue and _process polling, not just a direct
+	# call to _poll_range_key. Events are delivered on the next process frame.
+	bridge.set_process(true)
+	var down := InputEventKey.new()
+	down.keycode = KEY_F9
+	down.pressed = true
+	Input.parse_input_event(down)
+	await process_frame
+	await process_frame
+	if not is_equal_approx(overlay.call("get_range_metres"), 50.0) or persistent_hint.text != "F9 TOGGLE DISTANCE  50m":
+		_fail("Real queued F9 input did not cycle or visibly confirm range")
+		return
+	var up := InputEventKey.new()
+	up.keycode = KEY_F9
+	up.pressed = false
+	Input.parse_input_event(up)
+	await process_frame
+	await process_frame
+	bridge.set_process(false)
+	print("RANGE SMOKE OK: real queued Godot F9 input and persistent HUD label")
 	quit()
 
 

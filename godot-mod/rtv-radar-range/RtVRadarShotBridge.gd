@@ -9,6 +9,7 @@ const MUZZLE_TOLERANCE_METRES := 0.75
 const MODE_HINT_LIFETIME_MS := 1800
 
 var _mode_hint: Label
+var _range_hint: Label
 var _mode_hint_until_ms := 0
 var _f9_down := false
 
@@ -16,6 +17,21 @@ var _f9_down := false
 func _ready() -> void:
 	super._ready()
 	if is_instance_valid(_radar) and is_instance_valid(_canvas):
+		_range_hint = Label.new()
+		_range_hint.name = "RtVRadarRangeControlHint"
+		_range_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_range_hint.focus_mode = Control.FOCUS_NONE
+		_range_hint.anchor_left = 1.0
+		_range_hint.anchor_right = 1.0
+		_range_hint.offset_left = -248.0
+		_range_hint.offset_right = -18.0
+		_range_hint.offset_top = 252.0
+		_range_hint.offset_bottom = 278.0
+		_range_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		_range_hint.add_theme_font_size_override("font_size", 13)
+		_range_hint.add_theme_color_override("font_color", Color(0.69, 0.86, 0.89))
+		_range_hint.visible = false
+		_canvas.add_child(_range_hint)
 		_mode_hint = Label.new()
 		_mode_hint.name = "RtVRadarModeHint"
 		_mode_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -24,8 +40,8 @@ func _ready() -> void:
 		_mode_hint.anchor_right = 1.0
 		_mode_hint.offset_left = -248.0
 		_mode_hint.offset_right = -18.0
-		_mode_hint.offset_top = 252.0
-		_mode_hint.offset_bottom = 278.0
+		_mode_hint.offset_top = 280.0
+		_mode_hint.offset_bottom = 306.0
 		_mode_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		_mode_hint.add_theme_font_size_override("font_size", 12)
 		_mode_hint.add_theme_color_override("font_color", Color(0.69, 0.86, 0.89))
@@ -37,6 +53,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	super._process(delta)
 	_poll_range_key(Input.is_key_pressed(KEY_F9))
+	_update_range_hint()
 	_update_mode_hint(Time.get_ticks_msec())
 
 
@@ -45,6 +62,7 @@ func _poll_radar_keys(f7: bool, f8: bool) -> void:
 	super._poll_radar_keys(f7, f8)
 	if is_instance_valid(_radar) and not _radar.visible and is_instance_valid(_mode_hint):
 		_mode_hint.visible = false
+	_update_range_hint()
 	if previous_mode >= 0 and is_instance_valid(_radar) and int(_radar.get("_layer_mode")) != previous_mode and _radar.visible:
 		_show_mode_hint("RADAR: %s" % str(_radar.call("get_mode_name")))
 
@@ -57,6 +75,15 @@ func _poll_range_key(pressed: bool) -> void:
 		if _radar.visible:
 			_show_mode_hint("RADAR RANGE: %dm" % int(_radar.call("get_range_metres")))
 	_f9_down = pressed
+	_update_range_hint()
+
+
+func _update_range_hint() -> void:
+	if not is_instance_valid(_range_hint):
+		return
+	_range_hint.visible = _has_player and _controls_enabled and is_instance_valid(_radar) and _radar.visible
+	if _range_hint.visible:
+		_range_hint.text = "F9 TOGGLE DISTANCE  %dm" % int(_radar.call("get_range_metres"))
 
 
 func _show_mode_hint(text: String) -> void:
