@@ -1,6 +1,6 @@
 # Sobolyatnik-K — Sable Hunter 1L108K
 
-Sobolyatnik-K is an unofficial mod for **Road to Vostok**: an in-game radar for tracking people, movement trails, and loot, plus the RtV Toolkit terminal app for managing your character while the game is closed. Not affiliated with the developer. Many thanks to Antti for making a fun game!
+Sobolyatnik-K is an unofficial mod for **Road to Vostok**: an in-game radar for tracking shots, people, movement trails, and loot, plus the RtV Toolkit terminal app for managing your character while the game is closed. Not affiliated with the developer. Many thanks to Antti for making a fun game!
 
 ## Install the Radar and Toolkit (Windows / Steam)
 
