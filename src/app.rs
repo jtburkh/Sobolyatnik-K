@@ -1,8 +1,9 @@
 use std::{
     collections::HashMap,
     io,
+    path::PathBuf,
     sync::Arc,
-    time::{Duration, Instant},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 use anyhow::Result;
@@ -29,7 +30,7 @@ use crate::{
         state::{ConnectionStatus, SHOT_LIFETIME, TelemetryState, TrackedAi},
     },
     tres::{
-        CharacterDocument, EquipmentItem, EquipmentSlot, InventoryItem, WorldState,
+        CharacterDocument, EquipmentItem, EquipmentSlot, InventoryItem, SaveBackup, WorldState,
         validate_equipment_values,
     },
 };
@@ -49,6 +50,7 @@ enum Panel {
     Equipment,
     Inventory,
     Radar,
+    Backups,
 }
 
 #[derive(Debug)]
@@ -66,6 +68,11 @@ enum Mode {
     },
     ConfirmDelete,
     ConfirmReload,
+    ConfirmRestore {
+        path: PathBuf,
+        contents: String,
+        input: String,
+    },
     ConfirmQuit,
     ConfirmAirdrop,
     ConfirmBoss,
@@ -93,8 +100,11 @@ pub struct App {
     equip_selected: usize,
     mode: Mode,
     status: String,
-    tab_rects: [Rect; 4],
+    tab_rects: [Rect; 5],
     list_rect: Rect,
+    backups: Vec<SaveBackup>,
+    backup_selected: usize,
+    backup_list_offset: usize,
     telemetry_receiver: Option<TelemetryReceiver>,
     telemetry_state: TelemetryState,
     telemetry_bind: String,
@@ -113,6 +123,9 @@ impl App {
         let validation = document.validation(&catalog)?;
         let weapon_stats = WeaponStatsBook::load()?;
         let world = document.world_state();
+        // Backup enumeration must never prevent opening a valid save for inspection.
+        // Switching to Backups retries and surfaces any directory error.
+        let backups = document.backups().unwrap_or_default();
         Ok(Self {
             document,
             catalog,
@@ -126,13 +139,16 @@ impl App {
             equip_selected: 0,
             mode: Mode::Normal,
             status: "Loaded save. Press ? for help.".into(),
-            tab_rects: [Rect::default(); 4],
+            tab_rects: [Rect::default(); 5],
             list_rect: Rect::default(),
+            backups,
+            backup_selected: 0,
+            backup_list_offset: 0,
             telemetry_receiver: None,
             telemetry_state: TelemetryState::default(),
             telemetry_bind: DEFAULT_BIND_ADDRESS.to_owned(),
             radar_mode: RadarMode::Hybrid,
-            radar_range_index: 2,
+            radar_range_index: 1, // Match the HUD's 100m default; range changes are display-only.
             advanced_overlays: false,
             character_slot_rects: Vec::new(),
             inventory_list_offset: 0,
@@ -222,12 +238,9 @@ impl App {
         match self.panel {
             Panel::Character | Panel::Equipment => self.equipment.len(),
             Panel::Inventory => self.inventory.len(),
+            Panel::Backups => self.backups.len(),
             Panel::Radar => 0,
         }
-    }
-
-    fn uses_equipment_selection(&self) -> bool {
-        matches!(self.panel, Panel::Character | Panel::Equipment)
     }
 
     fn step_selected(&mut self, delta: isize) {
@@ -235,32 +248,38 @@ impl App {
         if len == 0 {
             return;
         }
-        let current = if self.uses_equipment_selection() {
-            self.equip_selected as isize
-        } else {
-            self.selected as isize
-        };
+        let current = match self.panel {
+            Panel::Character | Panel::Equipment => self.equip_selected,
+            Panel::Inventory => self.selected,
+            Panel::Backups => self.backup_selected,
+            Panel::Radar => 0,
+        } as isize;
         let next = current.saturating_add(delta).clamp(0, len as isize - 1) as usize;
-        if self.uses_equipment_selection() {
-            self.equip_selected = next;
-        } else {
-            self.selected = next;
+        match self.panel {
+            Panel::Character | Panel::Equipment => self.equip_selected = next,
+            Panel::Inventory => self.selected = next,
+            Panel::Backups => self.backup_selected = next,
+            Panel::Radar => {}
         }
     }
 
     fn select_first(&mut self) {
-        if self.uses_equipment_selection() {
-            self.equip_selected = 0;
-        } else {
-            self.selected = 0;
+        match self.panel {
+            Panel::Character | Panel::Equipment => self.equip_selected = 0,
+            Panel::Inventory => self.selected = 0,
+            Panel::Backups => self.backup_selected = 0,
+            Panel::Radar => {}
         }
     }
 
     fn select_last(&mut self) {
-        if self.uses_equipment_selection() {
-            self.equip_selected = self.equipment.len().saturating_sub(1);
-        } else {
-            self.selected = self.inventory.len().saturating_sub(1);
+        match self.panel {
+            Panel::Character | Panel::Equipment => {
+                self.equip_selected = self.equipment.len().saturating_sub(1)
+            }
+            Panel::Inventory => self.selected = self.inventory.len().saturating_sub(1),
+            Panel::Backups => self.backup_selected = self.backups.len().saturating_sub(1),
+            Panel::Radar => {}
         }
     }
 
@@ -269,16 +288,18 @@ impl App {
             Panel::Character => Panel::Equipment,
             Panel::Equipment => Panel::Inventory,
             Panel::Inventory => Panel::Radar,
-            Panel::Radar => Panel::Character,
+            Panel::Radar => Panel::Backups,
+            Panel::Backups => Panel::Character,
         })
     }
 
     fn previous_panel(&mut self) {
         self.switch_panel(match self.panel {
-            Panel::Character => Panel::Radar,
+            Panel::Character => Panel::Backups,
             Panel::Equipment => Panel::Character,
             Panel::Inventory => Panel::Equipment,
             Panel::Radar => Panel::Inventory,
+            Panel::Backups => Panel::Radar,
         })
     }
 
@@ -292,6 +313,9 @@ impl App {
             Panel::Equipment => "Equipment view; amount and condition edit when applicable.".into(),
             Panel::Inventory => "Inventory view (editable).".into(),
             Panel::Radar => "Live tactical radar; v changes mode and o toggles overlays.".into(),
+            Panel::Backups => {
+                "Backups for this save only; R restores with confirmation, r refreshes.".into()
+            }
         };
         match panel {
             Panel::Equipment => {
@@ -308,6 +332,7 @@ impl App {
                     .min(self.equipment.len().saturating_sub(1));
             }
             Panel::Radar => {}
+            Panel::Backups => self.refresh_backups(),
         }
     }
 
@@ -325,6 +350,7 @@ impl App {
                             Panel::Equipment,
                             Panel::Inventory,
                             Panel::Radar,
+                            Panel::Backups,
                         ];
                         self.switch_panel(tabs[index]);
                         return;
@@ -354,6 +380,9 @@ impl App {
                     } else if self.panel == Panel::Inventory && !self.inventory.is_empty() {
                         let row = self.inventory_list_offset + visible_row;
                         self.selected = row.min(self.inventory.len() - 1);
+                    } else if self.panel == Panel::Backups && !self.backups.is_empty() {
+                        let row = self.backup_list_offset + visible_row;
+                        self.backup_selected = row.min(self.backups.len() - 1);
                     }
                 }
             }
@@ -381,6 +410,7 @@ impl App {
                 KeyCode::Char('2') => self.switch_panel(Panel::Equipment),
                 KeyCode::Char('3') => self.switch_panel(Panel::Inventory),
                 KeyCode::Char('4') => self.switch_panel(Panel::Radar),
+                KeyCode::Char('5') => self.switch_panel(Panel::Backups),
                 KeyCode::Char('i') => self.switch_panel(Panel::Inventory),
                 KeyCode::BackTab => self.previous_panel(),
                 KeyCode::Tab | KeyCode::Char('e') => self.toggle_panel(),
@@ -414,7 +444,7 @@ impl App {
                             .selected_equipment_item()
                             .filter(|item| self.item_has_amount(&item.path))
                             .map(|item| item.amount),
-                        Panel::Character | Panel::Radar => None,
+                        Panel::Character | Panel::Radar | Panel::Backups => None,
                     };
                     if let Some(amount) = amount {
                         self.mode = Mode::EditAmount {
@@ -434,7 +464,7 @@ impl App {
                             .selected_equipment_item()
                             .filter(|item| self.equipment_has_condition(item))
                             .map(|item| item.condition),
-                        Panel::Character | Panel::Radar => None,
+                        Panel::Character | Panel::Radar | Panel::Backups => None,
                     };
                     if let Some(condition) = condition {
                         self.mode = Mode::EditCondition {
@@ -444,7 +474,9 @@ impl App {
                         self.status = "Condition is not applicable to the selected item.".into();
                     }
                 }
-                KeyCode::Char('s') => self.save(),
+                KeyCode::Char('s') if self.panel != Panel::Backups => self.save(),
+                KeyCode::Char('R') if self.panel == Panel::Backups => self.prepare_restore(),
+                KeyCode::Char('r') if self.panel == Panel::Backups => self.refresh_backups(),
                 KeyCode::Char('r') => {
                     if self.document.is_modified() {
                         self.mode = Mode::ConfirmReload;
@@ -644,6 +676,26 @@ impl App {
             Mode::ConfirmReload => match key.code {
                 KeyCode::Char('y') | KeyCode::Enter => self.reload(),
                 _ => self.mode = Mode::Normal,
+            },
+            Mode::ConfirmRestore {
+                path,
+                contents,
+                input,
+            } => match key.code {
+                KeyCode::Esc => self.mode = Mode::Normal,
+                KeyCode::Backspace => {
+                    input.pop();
+                }
+                KeyCode::Char(c) if c.is_ascii_alphabetic() && input.len() < 7 => input.push(c),
+                KeyCode::Enter if input == "RESTORE" => {
+                    let path = path.clone();
+                    let contents = contents.clone();
+                    self.restore_backup(&path, &contents);
+                }
+                KeyCode::Enter => {
+                    self.status = "Type RESTORE in uppercase, then Enter to confirm.".into()
+                }
+                _ => {}
             },
             Mode::ConfirmQuit => match key.code {
                 KeyCode::Char('y') | KeyCode::Enter => return Ok(true),
@@ -894,6 +946,76 @@ impl App {
         self.mode = Mode::Normal;
     }
 
+    fn refresh_backups(&mut self) {
+        match self.document.backups() {
+            Ok(backups) => {
+                self.backups = backups;
+                self.backup_selected = self
+                    .backup_selected
+                    .min(self.backups.len().saturating_sub(1));
+                self.status = format!(
+                    "{} backups for this character save. No files were changed.",
+                    self.backups.len()
+                );
+            }
+            Err(error) => {
+                self.backups.clear();
+                self.backup_selected = 0;
+                self.status = format!("Could not list backups: {error:#}");
+            }
+        }
+    }
+
+    fn prepare_restore(&mut self) {
+        if self.document.is_modified() {
+            self.status = "Unsaved edits exist; save or reload before restoring a backup.".into();
+            return;
+        }
+        let Some(backup) = self.backups.get(self.backup_selected) else {
+            self.status = "No backup selected. Only this save's .rtvbak files are listed.".into();
+            return;
+        };
+        let path = backup.path.clone();
+        match CharacterDocument::load(&path).and_then(|doc| {
+            doc.inventory()?;
+            doc.equipment()?;
+            std::fs::read_to_string(&path).map_err(Into::into)
+        }) {
+            Ok(contents) => {
+                self.mode = Mode::ConfirmRestore {
+                    path,
+                    contents,
+                    input: String::new(),
+                }
+            }
+            Err(error) => self.status = format!("Backup cannot be restored: {error:#}"),
+        }
+    }
+
+    fn restore_backup(&mut self, path: &std::path::Path, contents: &str) {
+        match self.document.restore_backup(path, contents) {
+            Ok(pre_restore) => {
+                self.refresh_backups();
+                match self.refresh() {
+                    Ok(()) => {
+                        self.status = format!(
+                            "Restored backup; previous save preserved at {}",
+                            pre_restore.display()
+                        )
+                    }
+                    Err(error) => {
+                        self.status = format!(
+                            "Restore completed but view refresh failed: {error:#}. Previous save: {}",
+                            pre_restore.display()
+                        )
+                    }
+                }
+            }
+            Err(error) => self.status = format!("Restore refused: {error:#}"),
+        }
+        self.mode = Mode::Normal;
+    }
+
     fn item_name<'a>(&'a self, item: &'a InventoryItem) -> &'a str {
         self.catalog
             .get(&item.path)
@@ -1007,6 +1129,7 @@ impl App {
                 self.draw_grid_and_details(frame, columns[1]);
             }
             Panel::Radar => self.draw_radar(frame, areas[2]),
+            Panel::Backups => self.draw_backups(frame, columns[0], columns[1]),
         }
 
         let command_style = Style::default()
@@ -1067,6 +1190,17 @@ impl App {
                 ],
                 "RADAR — PLAYER-CENTERED · UP IS CURRENT HEADING",
             ),
+            Panel::Backups => (
+                vec![
+                    ("Tab/⇧Tab", "View"),
+                    ("↑↓/jk·Pg", "Select"),
+                    ("r", "Refresh"),
+                    ("R", "Restore"),
+                    ("?", "Help"),
+                    ("q", "Quit"),
+                ],
+                "BACKUPS — ONLY MATCHING CHARACTER .rtvbak FILES · NO DELETE",
+            ),
         };
         let mut command_spans: Vec<Span<'static>> = Vec::new();
         for (key, action) in commands {
@@ -1105,6 +1239,12 @@ impl App {
                 "Discard all unsaved changes?",
                 "y/Enter=yes, any other key=no",
             ),
+            Mode::ConfirmRestore { input, .. } => self.draw_input_dialog(
+                frame,
+                "Restore selected backup",
+                input,
+                "Close RTV; type RESTORE to preserve current save and restore",
+            ),
             Mode::ConfirmQuit => self.draw_confirm(
                 frame,
                 "Quit and discard unsaved changes?",
@@ -1135,21 +1275,29 @@ impl App {
     fn draw_tab_bar(&mut self, frame: &mut Frame, area: Rect) {
         let quarters = Layout::default()
             .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(25); 4])
+            .constraints([Constraint::Percentage(20); 5])
             .split(area);
-        self.tab_rects = [quarters[0], quarters[1], quarters[2], quarters[3]];
+        self.tab_rects = [
+            quarters[0],
+            quarters[1],
+            quarters[2],
+            quarters[3],
+            quarters[4],
+        ];
         let telemetry_status = self.telemetry_state.connection_status(Instant::now());
         let labels = [
             "[1] CHARACTER".to_string(),
             format!("[2] EQUIPMENT  {} SLOTS", self.equipment.len()),
             format!("[3] INVENTORY  {} ITEMS", self.inventory.len()),
             format!("[4] RADAR  {}", connection_label(telemetry_status)),
+            format!("[5] BACKUPS  {}", self.backups.len()),
         ];
         let active_index = match self.panel {
             Panel::Character => 0,
             Panel::Equipment => 1,
             Panel::Inventory => 2,
             Panel::Radar => 3,
+            Panel::Backups => 4,
         };
         for (index, rect) in quarters.iter().enumerate() {
             let style = if index == active_index {
@@ -1186,7 +1334,7 @@ impl App {
             .as_ref()
             .map_or("UNKNOWN", |map| map.name.as_str());
         let radar_block = panel_block(&format!(
-            "SOBOLYATNIK-K 1L108K  //  MAP {}  //  {}  //  {:.0} m  //  {}",
+            "SOBOLYATNIK-K 1L108K  //  MAP {}  //  {}  //  DETECT {:.0}m  //  {}",
             map_name.to_uppercase(),
             self.radar_mode,
             self.radar_range(),
@@ -1265,6 +1413,8 @@ impl App {
                         }
                     }
                     if entity.alive
+                        && horizontal_distance(player.position, entity.position)
+                            <= self.radar_range()
                         && let (Some(heading), Some(range), Some(half_angle)) = (
                             entity.heading,
                             entity.vision_range,
@@ -1468,6 +1618,12 @@ impl App {
                 Style::default().fg(text_secondary()),
             ),
             Line::styled(
+                format!("DETECT  {:.0}m  (+/-)", self.radar_range()),
+                Style::default()
+                    .fg(accent_bright())
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Line::styled(
                 format!(
                     "OVERLAYS  {}",
                     if self.advanced_overlays { "ON" } else { "OFF" }
@@ -1529,7 +1685,17 @@ impl App {
             lines.push(Line::raw(""));
             lines.push(Line::styled(
                 if self.radar_mode.shows_ai() {
-                    format!("AI CONTACTS  {}", self.telemetry_state.ai_entities.len())
+                    format!(
+                        "AI CONTACTS  {}",
+                        self.telemetry_state
+                            .ai_entities
+                            .values()
+                            .filter(
+                                |entity| horizontal_distance(player.position, entity.position)
+                                    <= self.radar_range()
+                            )
+                            .count()
+                    )
                 } else {
                     "AI CONTACTS  MASKED".to_owned()
                 },
@@ -1541,10 +1707,12 @@ impl App {
                     .ai_entities
                     .values()
                     .map(|entity| {
-                        let distance = (entity.position[0] - player.position[0])
-                            .hypot(entity.position[2] - player.position[2]);
-                        (distance, entity)
+                        (
+                            horizontal_distance(player.position, entity.position),
+                            entity,
+                        )
                     })
+                    .filter(|(distance, _)| *distance <= self.radar_range())
                     .collect::<Vec<_>>();
                 contacts.sort_by(|left, right| left.0.total_cmp(&right.0));
                 let contact_limit = if self.advanced_overlays { 7 } else { 12 };
@@ -1601,14 +1769,31 @@ impl App {
             lines.push(Line::raw(""));
             lines.push(Line::styled(
                 if self.radar_mode.shows_shots() {
-                    format!("RECENT SHOTS  {}", self.telemetry_state.shot_events.len())
+                    format!(
+                        "RECENT SHOTS  {}",
+                        self.telemetry_state
+                            .shot_events
+                            .iter()
+                            .filter(|shot| horizontal_distance(player.position, shot.position)
+                                <= self.radar_range())
+                            .count()
+                    )
                 } else {
                     "SHOT DISPLAY  OFF".to_owned()
                 },
                 Style::default().fg(accent()).add_modifier(Modifier::BOLD),
             ));
             if self.radar_mode.shows_shots() {
-                for shot in self.telemetry_state.shot_events.iter().rev().take(4) {
+                for shot in self
+                    .telemetry_state
+                    .shot_events
+                    .iter()
+                    .rev()
+                    .filter(|shot| {
+                        horizontal_distance(player.position, shot.position) <= self.radar_range()
+                    })
+                    .take(4)
+                {
                     let age = now.saturating_duration_since(shot.occurred_at);
                     lines.push(Line::styled(
                         format!(
@@ -1630,7 +1815,12 @@ impl App {
                 lines.push(Line::styled(
                     format!(
                         "LOOT CONTAINERS  {}",
-                        self.telemetry_state.loot_containers.len()
+                        self.telemetry_state
+                            .loot_containers
+                            .values()
+                            .filter(|loot| horizontal_distance(player.position, loot.position)
+                                <= self.radar_range())
+                            .count()
                     ),
                     Style::default().fg(good()).add_modifier(Modifier::BOLD),
                 ));
@@ -1639,10 +1829,12 @@ impl App {
                     .loot_containers
                     .values()
                     .map(|container| {
-                        let distance = (container.position[0] - player.position[0])
-                            .hypot(container.position[2] - player.position[2]);
-                        (distance, container)
+                        (
+                            horizontal_distance(player.position, container.position),
+                            container,
+                        )
                     })
+                    .filter(|(distance, _)| *distance <= self.radar_range())
                     .collect::<Vec<_>>();
                 loot.sort_by(|left, right| left.0.total_cmp(&right.0));
                 for (distance, container) in loot.into_iter().take(6) {
@@ -2331,6 +2523,57 @@ impl App {
         }
     }
 
+    fn draw_backups(&mut self, frame: &mut Frame, list_area: Rect, detail_area: Rect) {
+        self.list_rect = list_area;
+        let entries = self
+            .backups
+            .iter()
+            .map(|backup| {
+                ListItem::new(format!(
+                    "{}  {:>8} B",
+                    backup_time(backup.modified),
+                    backup.bytes
+                ))
+            })
+            .collect::<Vec<_>>();
+        let mut state = ListState::default()
+            .with_offset(self.backup_list_offset)
+            .with_selected((!self.backups.is_empty()).then_some(self.backup_selected));
+        frame.render_stateful_widget(
+            List::new(entries)
+                .style(panel_style(false))
+                .highlight_style(selection_style())
+                .highlight_symbol("▸ ")
+                .block(panel_block(&format!(
+                    "SAVE BACKUPS  //  {} FOUND",
+                    self.backups.len()
+                ))),
+            list_area,
+            &mut state,
+        );
+        self.backup_list_offset = state.offset();
+        let details = if let Some(backup) = self.backups.get(self.backup_selected) {
+            format!(
+                "SELECTED BACKUP\n\nFile modified: {}\nSize: {} bytes\n\n{}\n\nR: restore after typing RESTORE.\nThe current save is backed up first.\nNothing is deleted or pruned.",
+                backup_time(backup.modified),
+                backup.bytes,
+                backup.path.display()
+            )
+        } else {
+            format!(
+                "No matching backups found for:\n{}\n\nUse s on an editing tab to create a backup when saving changes.\nOnly this save's .rtvbak files appear here.",
+                self.document.path().display()
+            )
+        };
+        frame.render_widget(
+            Paragraph::new(details)
+                .style(panel_style(false))
+                .wrap(Wrap { trim: false })
+                .block(panel_block("BACKUP DETAILS")),
+            detail_area,
+        );
+    }
+
     fn draw_inventory(&mut self, frame: &mut Frame, area: Rect) {
         self.list_rect = area;
         let rows = self
@@ -2789,7 +3032,7 @@ impl App {
         let area = centered_rect(72, 72, frame.area());
         frame.render_widget(Clear, area);
         let help = [
-            "1/2/3/4        Character · Equipment · Inventory · Radar tabs",
+            "1/2/3/4/5      Character · Equipment · Inventory · Radar · Backups",
             "Tab / Shift-Tab Move one tab right / left",
             "Mouse          Click tabs or list rows; scroll wheel moves selection",
             "Navigation     ↑/↓ or j/k, PgUp/PgDn, Home/End or g/G",
@@ -2804,7 +3047,8 @@ impl App {
             "b              Confirm one native boss spawn (Radar, live only)",
             "+ / -          Increase / decrease radar range",
             "s              Save after validation (creates .rtvbak backup)",
-            "r              Reload and discard unsaved edits",
+            "r              Reload; on Backups tab refresh the list",
+            "R              Restore backup on Backups tab; type RESTORE to confirm",
             "F1 or ?        Help        q  Quit",
             "",
             "The equipment panel shows everything the character currently has",
@@ -2833,6 +3077,32 @@ impl App {
             area,
         );
     }
+}
+
+/// Display backup timestamps in UTC without depending on the machine's locale.
+fn backup_time(when: SystemTime) -> String {
+    let seconds = when
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64;
+    let days = seconds / 86_400;
+    let seconds_in_day = seconds % 86_400;
+    // Gregorian civil date from Unix days (400-year era algorithm).
+    let z = days + 719_468;
+    let era = z / 146_097;
+    let doe = z - era * 146_097;
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let year = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day = doy - (153 * mp + 2) / 5 + 1;
+    let month = mp + if mp < 10 { 3 } else { -9 };
+    let year = year + i64::from(month <= 2);
+    format!(
+        "{year:04}-{month:02}-{day:02} {:02}:{:02} UTC",
+        seconds_in_day / 3600,
+        (seconds_in_day / 60) % 60
+    )
 }
 
 fn cell_marker(index: usize) -> char {
@@ -3039,6 +3309,10 @@ fn vision_cone_samples(
         samples.push(world_point(origin, angle, range));
     }
     samples
+}
+
+fn horizontal_distance(player: [f64; 3], target: [f64; 3]) -> f64 {
+    (target[0] - player[0]).hypot(target[2] - player[2])
 }
 
 fn shot_color(age: Duration) -> Color {
@@ -3318,13 +3592,14 @@ fn centered_fixed(width: u16, height: u16, area: Rect) -> Rect {
 #[cfg(test)]
 mod ui_tests {
     use super::{
-        App, Mode, Panel, RadarMode, background, boss_color, condition_pattern, condition_tiers,
-        danger, elevation_indicator, enemy_color, good, item_is_weapon, loot_elevation_indicator,
-        nomad_color, percent, shot_color, surface, vision_cone_samples, warning,
+        App, Mode, Panel, RadarMode, background, backup_time, boss_color, condition_pattern,
+        condition_tiers, danger, elevation_indicator, enemy_color, good, item_is_weapon,
+        loot_elevation_indicator, nomad_color, percent, shot_color, surface, vision_cone_samples,
+        warning,
     };
     use crate::catalog::Catalog;
     use crate::telemetry::protocol::{
-        AiSnapshot, LootSnapshot, MapSnapshot, PlayerSnapshot, Snapshot, TelemetryMessage,
+        AiSnapshot, Gunshot, LootSnapshot, MapSnapshot, PlayerSnapshot, Snapshot, TelemetryMessage,
     };
     use crate::tres::CharacterDocument;
     use crossterm::event::{
@@ -3333,7 +3608,7 @@ mod ui_tests {
     use ratatui::{Terminal, backend::TestBackend, layout::Rect, style::Color};
     use std::{
         fs,
-        time::{Instant, SystemTime},
+        time::{Duration, Instant, SystemTime, UNIX_EPOCH},
     };
 
     const TEST_SCHEMATIC_WIDTH: usize = 82;
@@ -3566,6 +3841,101 @@ catalog = Array[ExtResource("2")]([])
     }
 
     #[test]
+    fn selected_detection_range_filters_scope_and_telemetry_lists() {
+        let mut app = test_app();
+        app.panel = Panel::Radar;
+        app.advanced_overlays = true;
+        assert_eq!(app.radar_range(), 100.0);
+        let map_id = "res://Scenes/Outpost.tscn".to_owned();
+        let now = Instant::now();
+        app.telemetry_state.apply(
+            TelemetryMessage::Snapshot(Snapshot {
+                version: 1,
+                timestamp_ms: 1,
+                map: MapSnapshot {
+                    id: map_id.clone(),
+                    name: "Outpost".to_owned(),
+                },
+                player: PlayerSnapshot {
+                    id: 10,
+                    position: [0.0, 0.0, 0.0],
+                    heading: 0.0,
+                },
+                ai: [50.0, 150.0]
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, x)| AiSnapshot {
+                        id: (i + 1) as u64,
+                        position: [x, 0.0, 0.0],
+                        alive: true,
+                        heading: None,
+                        vision_range: None,
+                        vision_half_angle: None,
+                        player_visible: false,
+                        boss: false,
+                        faction: "Enemy".to_owned(),
+                        friendly: false,
+                    })
+                    .collect(),
+                loot: [50.0, 150.0]
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, x)| LootSnapshot {
+                        id: (i + 1) as u64,
+                        position: [x, 0.0, 0.0],
+                        name: format!("Cache {}", i + 1),
+                        locked: false,
+                        corpse: false,
+                    })
+                    .collect(),
+            }),
+            now,
+        );
+        for (i, x) in [50.0, 150.0].into_iter().enumerate() {
+            app.telemetry_state.apply(
+                TelemetryMessage::Gunshot(Gunshot {
+                    version: 1,
+                    timestamp_ms: 2,
+                    shooter_id: (i + 1) as u64,
+                    position: [x, 0.0, 0.0],
+                    map_id: map_id.clone(),
+                }),
+                now,
+            );
+        }
+        assert_eq!(app.telemetry_state.shot_events.len(), 2); // Collection unchanged.
+        let mut terminal = Terminal::new(TestBackend::new(160, 44)).unwrap();
+        let render = |terminal: &mut Terminal<TestBackend>, app: &mut App| {
+            terminal.draw(|frame| app.draw(frame)).unwrap();
+            terminal
+                .backend()
+                .buffer()
+                .content()
+                .iter()
+                .map(|cell| cell.symbol())
+                .collect::<String>()
+        };
+        let near = render(&mut terminal, &mut app);
+        assert!(near.contains("DETECT  100m"));
+        assert!(near.contains("AI CONTACTS  1"));
+        assert!(near.contains("RECENT SHOTS  1"));
+        assert!(near.contains("LOOT CONTAINERS  1"));
+        assert!(near.contains("Cache 1"));
+        assert!(!near.contains("Cache 2"));
+        app.handle_key(KeyEvent::new(KeyCode::Char('+'), KeyModifiers::NONE))
+            .unwrap();
+        let wide = render(&mut terminal, &mut app);
+        assert!(wide.contains("DETECT  200m"));
+        assert!(wide.contains("AI CONTACTS  2"));
+        assert!(wide.contains("RECENT SHOTS  2"));
+        assert!(wide.contains("LOOT CONTAINERS  2"));
+        assert!(wide.contains("Cache 2"));
+        app.handle_key(KeyEvent::new(KeyCode::Char('-'), KeyModifiers::NONE))
+            .unwrap();
+        assert_eq!(app.radar_range(), 100.0);
+    }
+
+    #[test]
     fn advanced_radar_renders_boss_elevation_and_loot() {
         let mut app = test_app();
         app.panel = Panel::Radar;
@@ -3691,13 +4061,84 @@ catalog = Array[ExtResource("2")]([])
         let mut app = test_app();
         app.handle_key(KeyEvent::new(KeyCode::BackTab, KeyModifiers::SHIFT))
             .unwrap();
-        assert_eq!(app.panel, Panel::Radar);
+        assert_eq!(app.panel, Panel::Backups);
         app.handle_key(KeyEvent::new(KeyCode::BackTab, KeyModifiers::SHIFT))
             .unwrap();
-        assert_eq!(app.panel, Panel::Inventory);
+        assert_eq!(app.panel, Panel::Radar);
         app.handle_key(KeyEvent::new(KeyCode::Tab, KeyModifiers::NONE))
             .unwrap();
-        assert_eq!(app.panel, Panel::Radar);
+        assert_eq!(app.panel, Panel::Backups);
+    }
+
+    #[test]
+    fn backup_tab_lists_only_selected_save_and_requires_typed_restore() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("rtv-toolkit-tab-backups-{unique}"));
+        fs::create_dir(&dir).unwrap();
+        let save = dir.join("Character.tres");
+        fs::write(&save, TEST_CHARACTER).unwrap();
+        let selected = dir.join("Character.tres.rtvbak.100");
+        fs::write(
+            &selected,
+            TEST_CHARACTER.replace("health = 100.0", "health = 74.0"),
+        )
+        .unwrap();
+        fs::write(dir.join("World.tres.rtvbak.101"), TEST_CHARACTER).unwrap();
+        let mut app = App::new(
+            CharacterDocument::load(&save).unwrap(),
+            Catalog::load().unwrap(),
+        )
+        .unwrap();
+        app.handle_key(KeyEvent::new(KeyCode::Char('5'), KeyModifiers::NONE))
+            .unwrap();
+        assert_eq!(app.panel, Panel::Backups);
+        assert_eq!(app.backups.len(), 1);
+        let mut terminal = Terminal::new(TestBackend::new(120, 30)).unwrap();
+        terminal.draw(|frame| app.draw(frame)).unwrap();
+        let rendered = terminal
+            .backend()
+            .buffer()
+            .content()
+            .iter()
+            .map(|cell| cell.symbol())
+            .collect::<String>();
+        assert!(rendered.contains("SAVE BACKUPS"));
+        assert!(rendered.contains("BACKUP DETAILS"));
+        app.handle_key(KeyEvent::new(KeyCode::Char('R'), KeyModifiers::SHIFT))
+            .unwrap();
+        assert!(matches!(app.mode, Mode::ConfirmRestore { .. }));
+        app.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE))
+            .unwrap();
+        assert_eq!(fs::read_to_string(&save).unwrap(), TEST_CHARACTER);
+        for key in "RESTORE".chars() {
+            app.handle_key(KeyEvent::new(KeyCode::Char(key), KeyModifiers::SHIFT))
+                .unwrap();
+        }
+        app.handle_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE))
+            .unwrap();
+        assert!(matches!(app.mode, Mode::Normal));
+        assert_eq!(app.document.stat("health").as_deref(), Some("74.0"));
+        assert_eq!(app.backups.len(), 2);
+        assert!(selected.exists());
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn backup_tab_refuses_unsaved_edits_and_dates_are_utc() {
+        let mut app = test_app();
+        app.document.set_vital("health", 81.0).unwrap();
+        app.switch_panel(Panel::Backups);
+        app.prepare_restore();
+        assert!(app.status.contains("Unsaved edits"));
+        assert!(matches!(app.mode, Mode::Normal));
+        assert_eq!(backup_time(UNIX_EPOCH), "1970-01-01 00:00 UTC");
+        assert_eq!(
+            backup_time(UNIX_EPOCH + Duration::from_secs(1_790_985_600)),
+            "2026-10-03 00:00 UTC"
+        );
     }
 
     #[test]

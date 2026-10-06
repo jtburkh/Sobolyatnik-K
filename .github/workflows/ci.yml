@@ -90,6 +90,20 @@ jobs:
           ! unzip -p dist/probes/RtVRadarShotsCandidate.vmz RtVRadarShotBridge.gd | grep -F '.hook('
           ! unzip -p dist/probes/RtVRadarShotsCandidate.vmz mod.txt | grep -F 'res://Scripts/AI.gd'
           echo '66fd97a4c1487be6688ef94b59ee709a3baa8c7886c490d2f03af7b8c395eefc  dist/probes/RtVRadarLoot.vmz' | sha256sum -c -
+      - name: Package unreleased range preview (not a release or installer asset)
+        run: |
+          python3 tools/package_radar_range.py
+          unzip -t dist/probes/RtVRadarRangeCandidate.vmz
+          unzip -p dist/probes/RtVRadarRangeCandidate.vmz mod.txt | grep -F 'id="rtv_toolkit_radar_range_candidate"'
+          unzip -p dist/probes/RtVRadarRangeCandidate.vmz RtVRadarLiteOverlay.gd | grep -F 'const RANGES_METRES := [50.0, 100.0, 200.0, 400.0]'
+          ! unzip -p dist/probes/RtVRadarRangeCandidate.vmz RtVRadarShotBridge.gd | grep -F '.hook('
+      - name: Share unreleased range preview for controlled owner testing
+        uses: actions/upload-artifact@v4
+        with:
+          name: UNRELEASED-radar-range-preview-vmz
+          path: dist/probes/RtVRadarRangeCandidate.vmz
+          if-no-files-found: error
+          retention-days: 30
       - name: Package the separately versioned Shot Alerts release bytes
         run: |
           python3 tools/package_radar_shots_release.py
@@ -143,9 +157,27 @@ jobs:
       - name: Preserve tested Windows Toolkit binary
         uses: actions/upload-artifact@v4
         with:
-          name: rtv-toolkit-windows-x64
+          name: UNRELEASED-rtv-toolkit-windows-x64
           path: target/x86_64-pc-windows-msvc/release/rtv-toolkit.exe
           if-no-files-found: error
+          retention-days: 30
+
+  toolkit-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build Linux/WSL preview (restore remains Windows-only)
+        run: cargo build --locked --release
+      - name: Check CLI entry point
+        run: ./target/release/rtv-toolkit --help | grep -F 'rtv-toolkit --check'
+      - name: Share unreleased Linux/WSL preview for owner testing
+        uses: actions/upload-artifact@v4
+        with:
+          name: UNRELEASED-rtv-toolkit-linux-x64
+          path: target/release/rtv-toolkit
+          if-no-files-found: error
+          retention-days: 30
 
   installer:
     needs: [quality, toolkit-windows]
@@ -169,7 +201,7 @@ jobs:
           path: dist/shot-alerts
       - uses: actions/download-artifact@v4
         with:
-          name: rtv-toolkit-windows-x64
+          name: UNRELEASED-rtv-toolkit-windows-x64
           path: dist/windows
       - name: Verify the tested VMZ (do not rebuild with a different zlib)
         shell: powershell

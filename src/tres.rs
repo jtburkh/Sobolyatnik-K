@@ -130,6 +130,13 @@ pub struct CharacterDocument {
     original_text: String,
 }
 
+#[derive(Clone, Debug)]
+pub struct SaveBackup {
+    pub path: PathBuf,
+    pub bytes: u64,
+    pub modified: SystemTime,
+}
+
 /// How long the character has been alive in the campaign, plus the world
 /// conditions the game records next to it in `World.tres`.
 #[derive(Debug, Clone, PartialEq)]
@@ -168,6 +175,34 @@ fn parse_world_text(text: &str) -> Option<WorldState> {
         difficulty: root_value("difficulty").and_then(|value| value.parse().ok()),
         weather: root_value("weather").map(|value| value.trim_matches('"').to_owned()),
     })
+}
+
+#[cfg(windows)]
+fn ensure_game_closed_for_restore() -> Result<()> {
+    let output = std::process::Command::new("tasklist.exe")
+        .args(["/FI", "IMAGENAME eq RTV.exe", "/NH"])
+        .output()
+        .context("could not verify that Road to Vostok is closed")?;
+    if !output.status.success() {
+        bail!("could not verify that Road to Vostok is closed");
+    }
+    if String::from_utf8_lossy(&output.stdout)
+        .to_ascii_lowercase()
+        .contains("rtv.exe")
+    {
+        bail!("close Road to Vostok before restoring a backup");
+    }
+    Ok(())
+}
+
+#[cfg(all(not(windows), test))]
+fn ensure_game_closed_for_restore() -> Result<()> {
+    Ok(()) // Unit tests use only synthetic saves in temporary directories.
+}
+
+#[cfg(all(not(windows), not(test)))]
+fn ensure_game_closed_for_restore() -> Result<()> {
+    bail!("backup restore is Windows-only; this build cannot verify that RTV.exe is closed")
 }
 
 impl CharacterDocument {
@@ -384,6 +419,82 @@ slot = \"\"\n\n",
         Ok(())
     }
 
+    /// Only Toolkit-generated siblings of this exact save. Do not follow links
+    /// or expose arbitrary files in the character's directory.
+    pub fn backups(&self) -> Result<Vec<SaveBackup>> {
+        let parent = self
+            .path
+            .parent()
+            .filter(|path| !path.as_os_str().is_empty())
+            .unwrap_or_else(|| Path::new("."));
+        let prefix = format!(
+            "{}.rtvbak.",
+            self.path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .ok_or_else(|| anyhow!("invalid save filename"))?
+        );
+        let mut backups = Vec::new();
+        for entry in
+            fs::read_dir(parent).with_context(|| format!("could not list {}", parent.display()))?
+        {
+            let entry = entry?;
+            let name = entry.file_name();
+            let Some(suffix) = name.to_str().and_then(|name| name.strip_prefix(&prefix)) else {
+                continue;
+            };
+            if suffix.is_empty()
+                || !suffix.bytes().all(|byte| byte.is_ascii_digit())
+                || !entry.file_type()?.is_file()
+            {
+                continue;
+            }
+            let metadata = entry.metadata()?;
+            backups.push(SaveBackup {
+                path: entry.path(),
+                bytes: metadata.len(),
+                modified: metadata.modified()?,
+            });
+        }
+        backups.sort_by(|a, b| {
+            b.modified
+                .cmp(&a.modified)
+                .then_with(|| b.path.cmp(&a.path))
+        });
+        Ok(backups)
+    }
+
+    /// Replaces only this save with a previously previewed Toolkit backup.
+    /// `save` preserves the current save as a fresh .rtvbak before replacement.
+    pub fn restore_backup(&mut self, backup: &Path, preview_text: &str) -> Result<PathBuf> {
+        if self.is_modified() {
+            bail!("unsaved edits exist; save or reload before restoring a backup");
+        }
+        ensure_game_closed_for_restore()?;
+        let current_type = fs::symlink_metadata(&self.path)?.file_type();
+        if !current_type.is_file() || current_type.is_symlink() {
+            bail!("refusing to replace a linked or non-regular save");
+        }
+        if !self.backups()?.iter().any(|entry| entry.path == backup) {
+            bail!("backup is not a regular Toolkit backup for this save");
+        }
+        let candidate = Self::load(backup)?;
+        candidate.inventory()?;
+        candidate.equipment()?;
+        if candidate.text != preview_text {
+            bail!("selected backup changed after confirmation; refresh the list");
+        }
+        let prior = self.text.clone();
+        self.text = candidate.text;
+        match self.save() {
+            Ok(pre_restore) => Ok(pre_restore),
+            Err(error) => {
+                self.text = prior;
+                Err(error)
+            }
+        }
+    }
+
     pub fn save(&mut self) -> Result<PathBuf> {
         let on_disk = fs::read_to_string(&self.path)
             .with_context(|| format!("could not re-read {} before saving", self.path.display()))?;
@@ -397,10 +508,15 @@ slot = \"\"\n\n",
             .file_name()
             .and_then(|name| name.to_str())
             .unwrap_or("Character.tres");
-        let stamp = SystemTime::now()
+        let mut stamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
-            .as_millis();
+            .as_nanos();
+        while parent.join(format!("{filename}.rtvbak.{stamp}")).exists()
+            || parent.join(format!(".{filename}.{stamp}.rtvtmp")).exists()
+        {
+            stamp += 1;
+        }
         let backup = parent.join(format!("{filename}.rtvbak.{stamp}"));
         let temporary = parent.join(format!(".{filename}.{stamp}.rtvtmp"));
 
@@ -889,6 +1005,79 @@ mod tests {
     use super::*;
 
     const EMPTY: &str = include_str!("../tests/fixtures/empty_character.tres");
+
+    #[test]
+    fn lists_only_matching_regular_backups_and_restores_without_deleting_any() {
+        let id = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("rtv-safe-backups-{id}"));
+        fs::create_dir(&dir).unwrap();
+        let save = dir.join("Character.tres");
+        fs::write(&save, EMPTY).unwrap();
+        let older = EMPTY.replace("health = 100.0", "health = 61.0");
+        let backup = dir.join("Character.tres.rtvbak.123456789");
+        fs::write(&backup, &older).unwrap();
+        fs::write(dir.join("World.tres.rtvbak.100"), EMPTY).unwrap();
+        fs::write(dir.join("Character.tres.rtvbak.BAD"), EMPTY).unwrap();
+        fs::create_dir(dir.join("Character.tres.rtvbak.200")).unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&backup, dir.join("Character.tres.rtvbak.300")).unwrap();
+        let mut doc = CharacterDocument::load(&save).unwrap();
+        assert_eq!(doc.backups().unwrap().len(), 1);
+        let rollback = doc.restore_backup(&backup, &older).unwrap();
+        assert_eq!(fs::read_to_string(&save).unwrap(), older);
+        assert_eq!(fs::read_to_string(&backup).unwrap(), older);
+        assert_eq!(fs::read_to_string(&rollback).unwrap(), EMPTY);
+        assert_ne!(backup, rollback);
+        assert_eq!(doc.backups().unwrap().len(), 2);
+        assert!(!doc.is_modified());
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn refuses_changed_backup_and_external_save_changes_without_losing_edits() {
+        let id = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("rtv-guard-backups-{id}"));
+        fs::create_dir(&dir).unwrap();
+        let save = dir.join("Character.tres");
+        fs::write(&save, EMPTY).unwrap();
+        let backup = dir.join("Character.tres.rtvbak.123456789");
+        let older = EMPTY.replace("health = 100.0", "health = 61.0");
+        fs::write(&backup, &older).unwrap();
+        let mut doc = CharacterDocument::load(&save).unwrap();
+        doc.set_vital("health", 74.0).unwrap();
+        assert!(
+            doc.restore_backup(&backup, &older)
+                .unwrap_err()
+                .to_string()
+                .contains("unsaved")
+        );
+        assert_eq!(doc.stat("health").as_deref(), Some("74"));
+        doc.reload().unwrap();
+        fs::write(&backup, EMPTY).unwrap();
+        assert!(
+            doc.restore_backup(&backup, &older)
+                .unwrap_err()
+                .to_string()
+                .contains("changed")
+        );
+        fs::write(&backup, &older).unwrap();
+        fs::write(&save, EMPTY.replace("health = 100.0", "health = 53.0")).unwrap();
+        assert!(
+            doc.restore_backup(&backup, &older)
+                .unwrap_err()
+                .to_string()
+                .contains("changed on disk")
+        );
+        assert_eq!(fs::read_to_string(&backup).unwrap(), older);
+        assert!(doc.backups().unwrap().len() == 1);
+        fs::remove_dir_all(dir).unwrap();
+    }
 
     const EQUIPPED: &str = r#"[gd_resource type="Resource" script_class="CharacterSave" format=3]
 
