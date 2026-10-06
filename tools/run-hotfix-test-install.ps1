@@ -1,6 +1,6 @@
 #requires -Version 5.1
 <#
-Owner-controlled, UNRELEASED @KIT_VERSION@ hotfix test kit. Keep every asset
+Owner-controlled @KIT_VERSION@ TEST prerelease kit. Keep every asset
 in this extracted folder; do not use the pinned v0.1.12 setup with these files.
 The verified setup owns all safety checks and will not overwrite a foreign
 receipt, loader, VMZ, executable, save or game binary.

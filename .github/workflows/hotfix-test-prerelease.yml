@@ -1,0 +1,172 @@
+name: Windows Build 25710663 owner-test prerelease
+
+# Explicit tag only. Re-runs must never overwrite a published tag's assets.
+on:
+  push:
+    tags:
+      - v0.1.13-test.2
+
+permissions:
+  contents: write
+
+jobs:
+  verified-windows-kit:
+    if: github.repository == 'jtburkh/Sobolyatnik-K'
+    runs-on: windows-latest
+    outputs:
+      kit_sha256: ${{ steps.archive.outputs.kit_sha256 }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+      - name: Require the exact, versioned tag and source package
+        shell: powershell
+        run: |
+          $version = & python -c "import tomllib;print(tomllib.load(open('Cargo.toml','rb'))['package']['version'])"
+          if ($LASTEXITCODE -ne 0 -or $version -ne '0.1.13-test.2' -or "v$version" -ne '${{ github.ref_name }}') { throw 'Tag, source and prerelease version disagree' }
+          python -m unittest discover -s tests/version -p 'test_*.py'
+          if ($LASTEXITCODE -ne 0) { throw 'Version/kit tests failed' }
+          python -m unittest discover -s tests/steam -p 'test_*.py'
+          if ($LASTEXITCODE -ne 0) { throw 'Build gate tests failed' }
+      - name: Build and test the Windows x64 executable actually shipped
+        shell: powershell
+        run: |
+          cargo test --locked --target x86_64-pc-windows-msvc
+          if ($LASTEXITCODE -ne 0) { throw 'Windows Rust tests failed' }
+          cargo build --locked --release --target x86_64-pc-windows-msvc
+          if ($LASTEXITCODE -ne 0) { throw 'Windows build failed' }
+          $exe = 'target/x86_64-pc-windows-msvc/release/rtv-toolkit.exe'
+          $helpText = & $exe --help | Out-String
+          if ($LASTEXITCODE -ne 0 -or $helpText -notmatch 'rtv-toolkit 0.1.13-test.2') { throw 'Windows EXE version mismatch' }
+          Write-Host "Windows executable SHA-256: $((Get-FileHash $exe -Algorithm SHA256).Hash)"
+      - name: Download and hash-check official MIT Metro files
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path dist/metro | Out-Null
+          $assets = @(
+            @{ Name = 'modloader.gd'; Url = 'https://github.com/ametrocavich/vostok-mod-loader/releases/download/v3.2.1/modloader.gd'; Hash = '60FCF7FEEC0A47C6472E3B7A190B46987B374618AE3D149C081B222542BC6135' },
+            @{ Name = 'override.cfg'; Url = 'https://github.com/ametrocavich/vostok-mod-loader/releases/download/v3.2.1/override.cfg'; Hash = '9750A66FCF0CB1D9BF84284271F52E064F455CDD5A1CDC4981A007E4011A684B' },
+            @{ Name = 'LICENSE'; Url = 'https://raw.githubusercontent.com/ametrocavich/vostok-mod-loader/v3.2.1/LICENSE'; Hash = 'A35D18B4F7F13235A40003AD97705E54BD37E5625DFE63CC6ECFFB3A3822B02F' }
+          )
+          foreach ($asset in $assets) {
+            $path = Join-Path dist/metro $asset.Name
+            Invoke-WebRequest -UseBasicParsing -Uri $asset.Url -OutFile $path
+            if ((Get-FileHash $path -Algorithm SHA256).Hash -ne $asset.Hash) { throw "Upstream Metro file changed: $($asset.Name)" }
+          }
+      - name: Download immutable v0.1.12 for migration and refusal fixtures
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path dist/previous | Out-Null
+          $assets = @(
+            @{ Name = 'setup-sobolyatnik.ps1'; Hash = 'E4BED9C344E0FBE89492F4C833EAB0C3245CBBE6519109E0AED212F1A27F6775' },
+            @{ Name = 'install-sobolyatnik.ps1'; Hash = 'CF66879C05C3A8404458E24B1E75F6943895C604A497398551DB8535BA01C39D' },
+            @{ Name = 'uninstall-sobolyatnik.ps1'; Hash = '9A0620B45A1C62395C2CF3DC897EFCD30F9600A517E8922A648E1257CADCB877' },
+            @{ Name = 'rtv-toolkit.exe'; Hash = '0A82B65014522D63A804FDCF577173B953E046E49D200681D1DDF1B33CBA8BD7' },
+            @{ Name = 'RtVRadarLoot.vmz'; Hash = '6D2D06E55831F174483595D44FDE6BA5C3A50F7FEC183D2C66A5953ECB98EFDD' }
+          )
+          foreach ($asset in $assets) {
+            $path = Join-Path dist/previous $asset.Name
+            Invoke-WebRequest -UseBasicParsing -Uri ('https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.12-experimental/' + $asset.Name) -OutFile $path
+            if ((Get-FileHash $path -Algorithm SHA256).Hash -ne $asset.Hash) { throw "Published v0.1.12 asset changed: $($asset.Name)" }
+          }
+      - name: Assemble exact offline test kit and test disposable Windows installs
+        shell: powershell
+        run: |
+          python tools/build_hotfix_test_kit.py --toolkit target/x86_64-pc-windows-msvc/release/rtv-toolkit.exe --metro dist/metro --output dist/hotfix-test-kit
+          if ($LASTEXITCODE -ne 0) { throw 'Kit assembly failed' }
+          $version = '0.1.13-test.2'
+          $hash = (Get-FileHash dist/hotfix-test-kit/RtVRadarLoot.vmz -Algorithm SHA256).Hash
+          ./tests/installer/hotfix-preview-smoke.ps1 -KitPath ./dist/hotfix-test-kit -LoaderSourceDirectory ./dist/metro -TestIntegration
+          ./tests/installer/bundle-smoke.ps1 -ArchivePath ./dist/hotfix-test-kit/RtVRadarLoot.vmz -LoaderSourceDirectory ./dist/metro -FakeToolkitPath ./dist/hotfix-test-kit/rtv-toolkit.exe -RenderedInstaller ./dist/hotfix-test-kit/setup-sobolyatnik.ps1 -RadarInstallerPath ./dist/hotfix-test-kit/install-sobolyatnik.ps1 -UninstallerPath ./dist/hotfix-test-kit/uninstall-sobolyatnik.ps1 -PreviousBundleInstallerPath ./dist/previous/setup-sobolyatnik.ps1 -PreviousBundleToolkitPath ./dist/previous/rtv-toolkit.exe -PreviousBundleUninstallerPath ./dist/previous/uninstall-sobolyatnik.ps1 -PreviousBundleRadarInstallerPath ./dist/previous/install-sobolyatnik.ps1 -PreviousBundleArchivePath ./dist/previous/RtVRadarLoot.vmz -PreviousBundleVersion 0.1.12-experimental -PreviousBundleGameBuild 25632875 -ExpectedGameBuild 25710663 -ExpectedToolkitVersion $version -ExpectedBundleVersion $version -ExpectedRadarHash $hash -CheckToolkitHelp
+      - name: ZIP tested files with checksums for the release
+        id: archive
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path dist/release | Out-Null
+          $name = 'Sobolyatnik-K-0.1.13-test.2-build25710663-Windows-test-kit.zip'
+          $zip = Join-Path dist/release $name
+          python tools/zip_hotfix_test_kit.py --kit dist/hotfix-test-kit --output $zip
+          if ($LASTEXITCODE -ne 0) { throw 'Portable kit ZIP packaging failed' }
+          $hash = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          [IO.File]::WriteAllText((Join-Path dist/release ($name + '.sha256')), "$hash  $name`n")
+          "kit_sha256=$hash" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          Write-Host "Test-kit ZIP SHA-256: $hash"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: prerelease-0.1.13-test.2-tested-assets
+          path: dist/release/*
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    needs: verified-windows-kit
+    if: github.repository == 'jtburkh/Sobolyatnik-K'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          name: prerelease-0.1.13-test.2-tested-assets
+          path: dist/release
+      - name: Refuse an old tag, missing kit member, mismatched ZIP, or changed public Steam build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          status=$(curl --max-time 20 -L -sS -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' 'https://api.github.com/repos/jtburkh/Sobolyatnik-K/releases/tags/v0.1.13-test.2')
+          test "$status" = 404 || { echo "Release already exists or GitHub API unavailable (HTTP $status); refusing to overwrite."; exit 1; }
+          cd dist/release
+          sha256sum -c Sobolyatnik-K-0.1.13-test.2-build25710663-Windows-test-kit.zip.sha256
+          unzip -t Sobolyatnik-K-0.1.13-test.2-build25710663-Windows-test-kit.zip
+          for name in RtVRadarLoot.vmz rtv-toolkit.exe setup-sobolyatnik.ps1 install-sobolyatnik.ps1 uninstall-sobolyatnik.ps1 run-test-install.ps1 TEST-README.txt metro/modloader.gd metro/override.cfg metro/LICENSE; do
+            unzip -Z1 Sobolyatnik-K-0.1.13-test.2-build25710663-Windows-test-kit.zip | grep -Fx "$name"
+          done
+          cd ../..
+          mkdir -p dist/review
+          unzip -p dist/release/Sobolyatnik-K-0.1.13-test.2-build25710663-Windows-test-kit.zip install-sobolyatnik.ps1 > dist/review/install-sobolyatnik.ps1
+          printf '"appid" "1963610"\n"buildid" "25710663"\n"InstalledDepots" { "1963611" { "manifest" "4116347595363715363" } }\n' > dist/review/expected-build.acf
+          python3 tools/check_steam_build.py --strict --manifest dist/review/expected-build.acf --installer dist/review/install-sobolyatnik.ps1
+      - name: Publish immutable test prerelease with rollback instructions
+        uses: softprops/action-gh-release@v2
+        with:
+          prerelease: true
+          draft: false
+          make_latest: false
+          fail_on_unmatched_files: true
+          name: 'Sobolyatnik-K 0.1.13-test.2 — Windows Build 25710663 TEST ONLY'
+          body: |
+            **OWNER TEST PRERELEASE — NOT GAMEPLAY COMPATIBILITY OR CRASH CLEARANCE.**
+            This is an offline Windows x64 kit for *only* Road to Vostok Steam
+            build **25710663**. It includes the new range-enabled Shot Alerts
+            VMZ, Toolkit (including the preview Backups tab), setup, uninstaller,
+            a README/checksum manifest, and verified MIT-licensed Metro 3.2.1.
+            All Windows build, clean-install, wrong-build, upgrade-refusal,
+            tamper, Windows integration and rollback **fixture** tests passed;
+            no owner-controlled new-build gameplay has been performed yet.
+            Source: `${{ github.sha }}`. ZIP SHA-256:
+            `${{ needs.verified-windows-kit.outputs.kit_sha256 }}`.
+
+            Download the **ZIP and adjacent `.sha256` file** below, verify the
+            SHA-256, and extract everything (including `metro/`) together.
+            **Close RTV**, back up any important saves, and use a disposable
+            character. From PowerShell in the extracted folder:
+            ```powershell
+            powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\run-test-install.ps1 -DryRun
+            # Only after reviewing the paths:
+            powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\run-test-install.ps1
+            # After the test, close RTV and Toolkit:
+            powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\run-test-install.ps1 -Uninstall
+            ```
+            Uninstall preserves Metro, saves and backups. Never bypass a Steam
+            build mismatch or force-overwrite another version. Existing
+            v0.1.12 release assets are untouched. See `TEST-README.txt` and
+            [the complete safety and test checklist](https://github.com/jtburkh/Sobolyatnik-K/blob/main/docs/hotfix-test-kit.md).
+          files: |
+            dist/release/Sobolyatnik-K-0.1.13-test.2-build25710663-Windows-test-kit.zip
+            dist/release/Sobolyatnik-K-0.1.13-test.2-build25710663-Windows-test-kit.zip.sha256

@@ -150,7 +150,7 @@ def generate(kit: Path, toolkit: Path, metro: Path) -> dict[str, str]:
     wrapper = replace_once(wrapper, "@KIT_VERSION@", kit_version)
     (kit / "run-test-install.ps1").write_text(wrapper, encoding="utf-8", newline="\n")
     lines = [
-        f"UNRELEASED Sobolyatnik-K {kit_version} owner test kit for Steam build {BUILD_ID}.",
+        f"Sobolyatnik-K {kit_version} OWNER TEST kit for Steam build {BUILD_ID} (not gameplay clearance).",
         "No v0.1.12 asset was changed. No game or save was touched during packaging.",
         "This has passed offline/Windows fixture checks only; it is NOT broad combat clearance.",
         "Close Road to Vostok. Use a disposable save and clean Steam test installation.",

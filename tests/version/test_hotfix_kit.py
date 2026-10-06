@@ -9,6 +9,7 @@ from zipfile import ZipFile
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "tools"))
 import build_hotfix_test_kit as builder
+import zip_hotfix_test_kit as zipper
 
 
 class HotfixKitTests(unittest.TestCase):
@@ -47,6 +48,17 @@ class HotfixKitTests(unittest.TestCase):
                 self.assertNotIn(".hook(", vmz.read("RtVRadarShotBridge.gd").decode())
             self.assertEqual(old_installer, (builder.TOOLS / "install-sobolyatnik-v0.1.12.ps1").read_bytes())
             self.assertTrue((kit / "metro" / "LICENSE").is_file())
+            artifact = pathlib.Path(temp) / "portable.zip"
+            self.assertEqual(len(zipper.make_zip(kit, artifact)), 64)
+            with ZipFile(artifact) as release:
+                self.assertEqual(release.namelist(), sorted(zipper.EXPECTED))
+                self.assertIn("metro/LICENSE", release.namelist())
+                self.assertNotIn("metro\\LICENSE", release.namelist())
+            with self.assertRaisesRegex(ValueError, "refusing to replace"):
+                zipper.make_zip(kit, artifact)
+            (kit / "unrecognized-secret.txt").write_text("never ship this")
+            with self.assertRaisesRegex(ValueError, "members differ"):
+                zipper.make_zip(kit, pathlib.Path(temp) / "rejected.zip")
 
     def test_rejects_non_windows_or_wrong_architecture(self):
         with self.assertRaisesRegex(ValueError, "not a Windows"):
