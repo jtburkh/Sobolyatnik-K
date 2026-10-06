@@ -1,7 +1,7 @@
 #requires -Version 5.1
 <#
-Owner-controlled @KIT_VERSION@ TEST prerelease kit. Keep every asset
-in this extracted folder; do not use the pinned v0.1.12 setup with these files.
+Sobolyatnik-K @KIT_VERSION@ experimental Windows bundle. Keep every asset
+in this extracted folder; do not use an earlier release's setup with these files.
 The verified setup owns all safety checks and will not overwrite a foreign
 receipt, loader, VMZ, executable, save or game binary.
 #>
@@ -27,7 +27,7 @@ foreach ($asset in @($setup, $radarInstaller, $uninstaller, $vmz, $toolkit,
                    (Join-Path $LoaderSourceDirectory 'modloader.gd'),
                    (Join-Path $LoaderSourceDirectory 'override.cfg'))) {
     if (-not (Test-Path -LiteralPath $asset -PathType Leaf)) {
-        throw "The extracted test kit is incomplete: $asset. Nothing was installed."
+        throw "The extracted Sobolyatnik-K bundle is incomplete: $asset. Nothing was installed."
     }
 }
 if ($Uninstall) {

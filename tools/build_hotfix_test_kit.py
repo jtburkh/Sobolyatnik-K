@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Build a separate, fully offline clean-machine test kit (NOT a release).
+"""Build a fully offline, versioned Windows experimental player bundle.
 
 Uses the hash-checked v0.1.12 installer design but never mutates its sources,
 release packagers, published assets or Steam files. Include official hash-pinned
-MIT-licensed Metro 3.2.1 and its license, so missing assets never fetch online.
+MIT-licensed Metro 3.2.1 and its license, so installation needs no network.
 """
 
 import argparse
@@ -37,16 +37,10 @@ def replace_once(text: str, old: str, new: str) -> str:
     return text.replace(old, new)
 
 
-def replace_count(text: str, old: str, new: str, count: int) -> str:
-    if text.count(old) != count:
-        raise ValueError(f"review source drift: expected {count} occurrences of {old!r}, found {text.count(old)}")
-    return text.replace(old, new)
-
-
 def version() -> str:
     package_version = tomllib.loads((ROOT / "Cargo.toml").read_text())["package"]["version"]
-    if not package_version.startswith("0.1.13-test.") or not package_version.rsplit(".", 1)[-1].isdigit():
-        raise ValueError("expected a distinct numbered 0.1.13-test.N prerelease version")
+    if package_version != "0.1.14-experimental.1":
+        raise ValueError("expected the separately versioned 0.1.14-experimental.1 player release")
     manifest = (SOURCE / "mod.txt").read_text()
     if f'version="{package_version}"' not in manifest:
         raise ValueError("Toolkit and candidate radar manifest versions differ")
@@ -70,7 +64,7 @@ def package_radar(path: Path, kit_version: str) -> str:
         "RtVRadarShotBridge.gd": (SOURCE / "RtVRadarShotBridge.gd").read_text(),
         "mod.txt": (
             '[mod]\n'
-            f'name="Sobolyatnik-K Controlled Hotfix Test — 1L108K"\n'
+            f'name="Sobolyatnik-K (Sable Hunter) Experimental — 1L108K"\n'
             'id="rtv_toolkit_radar_loot"\n'
             f'version="{kit_version}"\n'
             'priority=0\n\n'
@@ -110,9 +104,9 @@ def generate(kit: Path, toolkit: Path, metro: Path) -> dict[str, str]:
         ("$version = '0.1.12'", f"$version = '{kit_version}'"),
         ("$expectedBuild = '25632875'", f"$expectedBuild = '{BUILD_ID}'"),
         (f"$expectedHash = '{OLD_VMZ_HASH}'", f"$expectedHash = '{radar_hash}'"),
-        ("$downloadUrl = 'https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.12-experimental/RtVRadarLoot.vmz'", "$downloadUrl = '' # All preview radar bytes must be supplied locally."),
-        ("Assert-GameClosed\n$game = Resolve-Game", "if (-not $ArchivePath) { throw 'This test kit requires its local -ArchivePath; no VMZ is downloaded.' }\nAssert-GameClosed\n$game = Resolve-Game"),
-        ("Launch Road to Vostok. F7 cycles radar layers; F8 hides/shows the overlay.", "Controlled test only. F7 modes, F8 hide/show, F9 range. Preserve rollback before testing."),
+        ("$downloadUrl = 'https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.12-experimental/RtVRadarLoot.vmz'", "$downloadUrl = '' # Versioned radar bytes must be supplied locally."),
+        ("Assert-GameClosed\n$game = Resolve-Game", "if (-not $ArchivePath) { throw 'This offline bundle requires its local -ArchivePath; no VMZ is downloaded.' }\nAssert-GameClosed\n$game = Resolve-Game"),
+        ("Launch Road to Vostok. F7 cycles radar layers; F8 hides/shows the overlay.", "Launch Road to Vostok. F7 cycles radar modes, F8 hides/shows it, and F9 changes the view range."),
     ):
         radar = replace_once(radar, old, new)
     (kit / "install-sobolyatnik.ps1").write_text(radar, encoding="utf-8", newline="\n")
@@ -121,9 +115,6 @@ def generate(kit: Path, toolkit: Path, metro: Path) -> dict[str, str]:
     uninstaller = (TOOLS / "uninstall-sobolyatnik-v0.1.12.ps1").read_text()
     uninstaller = replace_once(uninstaller, "$version = '0.1.12-experimental'", f"$version = '{kit_version}'")
     uninstaller = replace_once(uninstaller, f"$radarHash = '{OLD_VMZ_HASH}'", f"$radarHash = '{radar_hash}'")
-    uninstaller = replace_once(uninstaller, "if ($entry.DisplayName -ne 'Sobolyatnik-K (Experimental)'", f"if ($entry.DisplayName -ne 'Sobolyatnik-K ({kit_version} TEST)'")
-    for old, new in (("Sobolyatnik-K Toolkit.lnk", "Sobolyatnik-K Toolkit (TEST).lnk"), ("Uninstall Sobolyatnik-K.lnk", "Uninstall Sobolyatnik-K (TEST).lnk")):
-        uninstaller = replace_count(uninstaller, old, new, 2)
     (kit / "uninstall-sobolyatnik.ps1").write_text(uninstaller, encoding="utf-8", newline="\n")
     uninstaller_hash = sha256(uninstaller.encode("utf-8"))
 
@@ -132,41 +123,39 @@ def generate(kit: Path, toolkit: Path, metro: Path) -> dict[str, str]:
         ("$version = '0.1.12-experimental'", f"$version = '{kit_version}'"),
         (f"$radarHash = '{OLD_VMZ_HASH}'", f"$radarHash = '{radar_hash}'"),
         ("$radarInstallerHash = 'cf66879c05c3a8404458e24b1e75f6943895c604a497398551db8535ba01c39d'", f"$radarInstallerHash = '{radar_installer_hash}'"),
-        ("$newRelease = 'https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.12-experimental'", "$newRelease = '' # Offline test kit: never fetch preview bytes from the old release."),
+        ("$newRelease = 'https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.12-experimental'", "$newRelease = '' # Offline bundle: never fetch assets from an old release."),
         ("@('0.1.9-experimental', '0.1.11-experimental')", "@('0.1.9-experimental', '0.1.11-experimental', '0.1.12-experimental')"),
-        ("$downloads = New-Object System.Collections.Generic.List[string]\ntry {", "$downloads = New-Object System.Collections.Generic.List[string]\ntry {\n    if (-not $ToolkitPath -or -not $UninstallerPath -or -not $RadarInstallerPath -or -not $ArchivePath -or -not $LoaderSourceDirectory) {\n        throw 'This offline test kit requires local Toolkit, uninstaller, radar installer, VMZ, and Metro; nothing was installed.'\n    }"),
+        ("$downloads = New-Object System.Collections.Generic.List[string]\ntry {", "$downloads = New-Object System.Collections.Generic.List[string]\ntry {\n    if (-not $ToolkitPath -or -not $UninstallerPath -or -not $RadarInstallerPath -or -not $ArchivePath -or -not $LoaderSourceDirectory) {\n        throw 'This offline bundle requires local Toolkit, uninstaller, radar installer, VMZ, and Metro; nothing was installed.'\n    }"),
         ("-Name DisplayVersion -Value '0.1.12'", f"-Name DisplayVersion -Value '{kit_version}'"),
         ("@TOOLKIT_SHA256@", sha256(executable)),
         ("@UNINSTALLER_SHA256@", uninstaller_hash),
     ):
         setup = replace_once(setup, old, new)
-    setup = replace_count(setup, "Sobolyatnik-K (Experimental)", f"Sobolyatnik-K ({kit_version} TEST)", 2)
-    for old, new in (("Sobolyatnik-K Toolkit.lnk", "Sobolyatnik-K Toolkit (TEST).lnk"), ("Uninstall Sobolyatnik-K.lnk", "Uninstall Sobolyatnik-K (TEST).lnk")):
-        setup = replace_count(setup, old, new, 2)
     (kit / "setup-sobolyatnik.ps1").write_text(setup, encoding="utf-8", newline="\n")
     setup_hash = sha256(setup.encode("utf-8"))
 
     wrapper = (TOOLS / "run-hotfix-test-install.ps1").read_text()
     wrapper = replace_once(wrapper, "@KIT_VERSION@", kit_version)
-    (kit / "run-test-install.ps1").write_text(wrapper, encoding="utf-8", newline="\n")
+    (kit / "run-sobolyatnik.ps1").write_text(wrapper, encoding="utf-8", newline="\n")
     lines = [
-        f"Sobolyatnik-K {kit_version} OWNER TEST kit for Steam build {BUILD_ID} (not gameplay clearance).",
-        "No v0.1.12 asset was changed. No game or save was touched during packaging.",
-        "This has passed offline/Windows fixture checks only; it is NOT broad combat clearance.",
-        "Close Road to Vostok. Use a disposable save and clean Steam test installation.",
-        "The included Metro Mod Loader 3.2.1 is upstream MIT licensed; see metro/LICENSE.",
-        "Extract the entire GitHub Actions artifact, INCLUDING the metro folder, into one folder on Windows.",
-        "From PowerShell in that folder: .\\run-test-install.ps1 -DryRun",
-        "Review the paths and hashes. To opt into the controlled test: .\\run-test-install.ps1",
-        "If Steam updates again, the installer refuses; never change the manifest or build guard.",
-        "Close the game before uninstall: .\\run-test-install.ps1 -Uninstall",
+        f"Sobolyatnik-K {kit_version} experimental Windows bundle for Road to Vostok Steam build {BUILD_ID}.",
+        "Includes the in-game Shot Alerts radar, selectable 50/100/200/400m views, and Windows Toolkit.",
+        "Close Road to Vostok before installing or editing saves. Back up important saves first.",
+        "Download the ZIP and checksum from the v0.1.14-experimental.1 GitHub release; verify before extracting.",
+        "Extract the entire ZIP including the metro folder into one folder on Windows.",
+        "From PowerShell in that folder, first run: .\\run-sobolyatnik.ps1 -DryRun",
+        "After reviewing paths, install: .\\run-sobolyatnik.ps1",
+        "If Steam updates again, the installer refuses; do not change the build guard.",
+        "To uninstall, close the game and Toolkit, then run: .\\run-sobolyatnik.ps1 -Uninstall",
         "Uninstall retains Metro, character saves and rollback copies.",
+        "First release on this game build: gameplay stability is not yet broadly established. Report bugs with redacted logs.",
+        "The included official Metro Mod Loader 3.2.1 is MIT licensed; see metro/LICENSE.",
         "",
-        "SHA-256 (verify the downloaded artifact files before running):",
+        "SHA-256 (internal file hashes for this bundle):",
     ]
-    for name in ("RtVRadarLoot.vmz", "rtv-toolkit.exe", "install-sobolyatnik.ps1", "uninstall-sobolyatnik.ps1", "setup-sobolyatnik.ps1", "run-test-install.ps1", "metro/modloader.gd", "metro/override.cfg", "metro/LICENSE"):
+    for name in ("RtVRadarLoot.vmz", "rtv-toolkit.exe", "install-sobolyatnik.ps1", "uninstall-sobolyatnik.ps1", "setup-sobolyatnik.ps1", "run-sobolyatnik.ps1", "metro/modloader.gd", "metro/override.cfg", "metro/LICENSE"):
         lines.append(f"{sha256((kit / name).read_bytes())}  {name}")
-    (kit / "TEST-README.txt").write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
+    (kit / "README.txt").write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
     return {"version": kit_version, "radar_sha256": radar_hash, "setup_sha256": setup_hash, "toolkit_sha256": sha256(executable)}
 
 

@@ -32,7 +32,7 @@ try {
     $fixtureKit = Join-Path $root 'TestKit'
     New-Item -ItemType Directory -Force -Path $game, (Split-Path $save), $fixtureKit | Out-Null
     Copy-Item -Path (Join-Path $kit '*') -Destination $fixtureKit -Recurse -Force
-    $runner = Join-Path $fixtureKit 'run-test-install.ps1'
+    $runner = Join-Path $fixtureKit 'run-sobolyatnik.ps1'
     $vmz = Join-Path $fixtureKit 'RtVRadarLoot.vmz'
     $exe = Join-Path $fixtureKit 'rtv-toolkit.exe'
     $originalExe = [IO.File]::ReadAllBytes($exe)
@@ -65,9 +65,9 @@ try {
     $menu = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Sobolyatnik-K'
     $reg = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Sobolyatnik-K'
     if ($TestIntegration) {
-        Check ((Test-Path -LiteralPath (Join-Path $menu 'Sobolyatnik-K Toolkit (TEST).lnk')) -and (Test-Path -LiteralPath $reg)) 'Windows integration missing'
+        Check ((Test-Path -LiteralPath (Join-Path $menu 'Sobolyatnik-K Toolkit.lnk')) -and (Test-Path -LiteralPath $reg)) 'Windows integration missing'
         $entry = Get-ItemProperty -LiteralPath $reg
-        Check ($entry.DisplayName -eq "Sobolyatnik-K ($($installed.Version) TEST)" -and $entry.DisplayVersion -eq $installed.Version) 'Windows entry is not visibly labeled as this test version'
+        Check ($entry.DisplayName -eq 'Sobolyatnik-K (Experimental)' -and $entry.DisplayVersion -eq $installed.Version) 'Windows entry is not visibly labeled as this test version'
     }
     [IO.File]::WriteAllText($tool, 'tampered after install')
     Fails { & $runner @fixtureArgs -Uninstall } 'differs from the installed release'

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a portable, deterministic ZIP from an already tested offline kit.
+"""Build a portable, deterministic ZIP from an already fixture-tested offline bundle.
 
 Reject missing/extra entries or symlinks; Windows Compress-Archive writes
 backslash member names that fail to extract as directories on other systems.
@@ -12,13 +12,13 @@ from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 EXPECTED = (
     "RtVRadarLoot.vmz",
-    "TEST-README.txt",
+    "README.txt",
     "install-sobolyatnik.ps1",
     "metro/LICENSE",
     "metro/modloader.gd",
     "metro/override.cfg",
     "rtv-toolkit.exe",
-    "run-test-install.ps1",
+    "run-sobolyatnik.ps1",
     "setup-sobolyatnik.ps1",
     "uninstall-sobolyatnik.ps1",
 )

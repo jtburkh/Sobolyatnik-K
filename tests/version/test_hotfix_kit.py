@@ -48,6 +48,7 @@ class HotfixKitTests(unittest.TestCase):
                 self.assertNotIn(".hook(", vmz.read("RtVRadarShotBridge.gd").decode())
             self.assertEqual(old_installer, (builder.TOOLS / "install-sobolyatnik-v0.1.12.ps1").read_bytes())
             self.assertTrue((kit / "metro" / "LICENSE").is_file())
+            self.assertIn("experimental Windows bundle", (kit / "README.txt").read_text())
             artifact = pathlib.Path(temp) / "portable.zip"
             self.assertEqual(len(zipper.make_zip(kit, artifact)), 64)
             with ZipFile(artifact) as release:
