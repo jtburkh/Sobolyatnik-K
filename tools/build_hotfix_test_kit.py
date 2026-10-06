@@ -39,8 +39,8 @@ def replace_once(text: str, old: str, new: str) -> str:
 
 def version() -> str:
     package_version = tomllib.loads((ROOT / "Cargo.toml").read_text())["package"]["version"]
-    if package_version != "0.1.16-experimental.1":
-        raise ValueError("expected the separately versioned 0.1.16-experimental.1 player release")
+    if package_version != "0.1.17-experimental.1":
+        raise ValueError("expected the separately versioned 0.1.17-experimental.1 player release")
     manifest = (SOURCE / "mod.txt").read_text()
     if f'version="{package_version}"' not in manifest:
         raise ValueError("Toolkit and candidate radar manifest versions differ")
@@ -151,7 +151,7 @@ def generate(kit: Path, toolkit: Path, metro: Path) -> dict[str, str]:
         (f"$radarHash = '{OLD_VMZ_HASH}'", f"$radarHash = '{radar_hash}'"),
         ("$radarInstallerHash = 'cf66879c05c3a8404458e24b1e75f6943895c604a497398551db8535ba01c39d'", f"$radarInstallerHash = '{radar_installer_hash}'"),
         ("$newRelease = 'https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.12-experimental'", "$newRelease = '' # Offline bundle: never fetch assets from an old release."),
-        ("@('0.1.9-experimental', '0.1.11-experimental')", "@('0.1.9-experimental', '0.1.11-experimental', '0.1.12-experimental')"),
+        ("@('0.1.9-experimental', '0.1.11-experimental')", "@('0.1.9-experimental', '0.1.11-experimental', '0.1.12-experimental', '0.1.16-experimental.1')"),
         ("$downloads = New-Object System.Collections.Generic.List[string]\ntry {", "$downloads = New-Object System.Collections.Generic.List[string]\ntry {\n    if (-not $ToolkitPath -or -not $UninstallerPath -or -not $RadarInstallerPath -or -not $ArchivePath -or -not $LoaderSourceDirectory) {\n        throw 'This offline bundle requires local Toolkit, uninstaller, radar installer, VMZ, and Metro; nothing was installed.'\n    }"),
         ("-Name DisplayVersion -Value '0.1.12'", f"-Name DisplayVersion -Value '{kit_version}'"),
         ("@TOOLKIT_SHA256@", sha256(executable)),
@@ -168,7 +168,7 @@ def generate(kit: Path, toolkit: Path, metro: Path) -> dict[str, str]:
         f"Sobolyatnik-K {kit_version} experimental Windows bundle for Road to Vostok Steam build {BUILD_ID}.",
         "Includes the in-game Shot Alerts radar, selectable 50/100/200/400m views, and Windows Toolkit.",
         "Close Road to Vostok before installing or editing saves. Back up important saves first.",
-        "Download the ZIP and checksum from the v0.1.16-experimental.1 GitHub release; verify before extracting.",
+        "Download the ZIP and checksum from the v0.1.17-experimental.1 GitHub release; verify before extracting.",
         "Extract the entire ZIP including the metro folder into one folder on Windows.",
         "From PowerShell in that folder, first run: .\\run-sobolyatnik.ps1 -DryRun",
         "After reviewing paths, install: .\\run-sobolyatnik.ps1",

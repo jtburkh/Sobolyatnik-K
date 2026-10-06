@@ -24,6 +24,11 @@ class ReleaseMetadataTests(unittest.TestCase):
         self.assertIn(zip_name, source)
         self.assertIn(zip_name, readme)
         self.assertIn("/releases/download/" + tag + "/", readme)
+        for asset in ("RtVRadarLoot.vmz", "rtv-toolkit.exe"):
+            self.assertIn("dist/release/" + asset + "\n", source)
+            self.assertIn("dist/release/" + asset + ".sha256\n", source)
+            self.assertIn("/releases/download/" + tag + "/" + asset + ")", readme)
+            self.assertIn("/releases/download/" + tag + "/" + asset + ".sha256)", readme)
         self.assertNotIn("sobolyatnik-k-v0.1.12.ps1", readme)
 
 
