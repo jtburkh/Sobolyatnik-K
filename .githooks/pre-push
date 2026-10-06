@@ -1,9 +1,27 @@
 #!/usr/bin/env bash
-# Advisory only: report Steam changes without blocking source pushes.
+# Steam is advisory for source pushes; the code-version gate is mandatory.
 # Enable with: git config --local core.hooksPath .githooks
 set -euo pipefail
 root="$(git rev-parse --show-toplevel)"
 if ! python3 "$root/tools/check_steam_build.py"; then
     echo 'WARNING: Steam build check failed unexpectedly; source push not blocked. Do not treat this as release clearance.' >&2
 fi
+# Git supplies one line per pushed ref. Block code pushes without a new version;
+# never weaken the advisory Steam check or pretend it grants release clearance.
+while read -r local_ref local_sha remote_ref remote_sha; do
+    [[ "$local_ref" == refs/heads/* ]] || continue
+    [[ "$local_sha" =~ ^0+$ ]] && continue # deletion
+    if [[ "$remote_sha" =~ ^0+$ ]]; then
+        base="$(git merge-base "$local_sha" refs/remotes/origin/main)" || {
+            echo 'VERSION GATE: fetch origin/main before pushing a new branch.' >&2
+            exit 1
+        }
+    else
+        base="$remote_sha"
+    fi
+    python3 "$root/tools/check_source_version.py" --base "$base" || {
+        echo 'VERSION GATE: fetch the remote branch and bump the candidate version before retrying.' >&2
+        exit 1
+    }
+done
 exit 0

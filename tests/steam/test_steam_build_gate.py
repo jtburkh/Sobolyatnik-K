@@ -51,6 +51,13 @@ class BuildGateTests(unittest.TestCase):
         self.assertEqual(len(blockers), 1)
         self.assertIn("NOT been validated", blockers[0])
 
+    def test_distinct_candidate_pin_matches_identity_without_claiming_compatibility(self):
+        self.installer.write_text("$expectedBuild = '25710663'\n", encoding="utf-8")
+        self.set_manifest("25710663", "4116347595363715363")
+        report, blockers = gate.check(self.manifest, self.installer, response("25710663", "4116347595363715363"))
+        self.assertEqual(blockers, [])
+        self.assertIn("pinned installer 25710663", report)
+
     def test_stale_or_wrong_local_install_blocks(self):
         _, blockers = gate.check(self.manifest, self.installer, response("25710663", "4116347595363715363"))
         self.assertEqual(len(blockers), 3)

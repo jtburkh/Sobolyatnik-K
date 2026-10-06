@@ -120,17 +120,18 @@ def check(manifest: Path, installer: Path = INSTALLER, info: dict | None = None)
     if remote_depot != local_depot:
         problems.append("local depot manifest differs from the live public depot")
     if remote != supported:
-        problems.append("published installer has NOT been validated for this public build")
+        problems.append("selected installer has NOT been validated for this public build")
     return report, problems
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", type=Path, help="path to Steam appmanifest_1963610.acf if Steam uses a different library")
+    parser.add_argument("--installer", type=Path, help="review a distinct candidate radar installer's build pin (default: published v0.1.12)")
     parser.add_argument("--strict", action="store_true", help="fail on mismatch or unavailable data when checking release readiness")
     args = parser.parse_args()
     try:
-        report, problems = check(args.manifest or default_manifest())
+        report, problems = check(args.manifest or default_manifest(), installer=args.installer or INSTALLER)
     except BuildCheckError as error:
         print(f"WARNING: cannot verify Steam build: {error}", file=sys.stderr)
         if args.strict:

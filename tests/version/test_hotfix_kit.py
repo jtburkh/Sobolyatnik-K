@@ -1,0 +1,64 @@
+import hashlib
+import pathlib
+import struct
+import sys
+import tempfile
+import unittest
+from unittest.mock import patch
+from zipfile import ZipFile
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "tools"))
+import build_hotfix_test_kit as builder
+
+
+class HotfixKitTests(unittest.TestCase):
+    def test_offline_versioned_kit_without_touching_release(self):
+        old_installer = (builder.TOOLS / "install-sobolyatnik-v0.1.12.ps1").read_bytes()
+        with tempfile.TemporaryDirectory() as temp:
+            source = pathlib.Path(temp) / "fake-windows-x64.exe"
+            binary = bytearray(512)
+            binary[:2] = b"MZ"
+            struct.pack_into("<I", binary, 0x3C, 0x80)
+            binary[0x80:0x84] = b"PE\0\0"
+            struct.pack_into("<H", binary, 0x84, 0x8664)
+            source.write_bytes(binary)
+            kit = pathlib.Path(temp) / "kit"
+            metro = pathlib.Path(temp) / "metro"
+            metro.mkdir()
+            for name in builder.METRO_HASHES:
+                (metro / name).write_bytes(f"fixture {name}".encode())
+            fixture_hashes = {name: hashlib.sha256((metro / name).read_bytes()).hexdigest() for name in builder.METRO_HASHES}
+            with patch.object(builder, "METRO_HASHES", fixture_hashes):
+                results = builder.generate(kit, source, metro)
+                with self.assertRaisesRegex(ValueError, "refusing to overwrite"):
+                    builder.generate(kit, source, metro)
+            version = results["version"]
+            setup = (kit / "setup-sobolyatnik.ps1").read_text()
+            radar = (kit / "install-sobolyatnik.ps1").read_text()
+            self.assertIn(f"$version = '{version}'", setup)
+            self.assertIn("$newRelease = ''", setup)
+            self.assertIn("$downloadUrl = ''", radar)
+            self.assertIn("if (-not $ArchivePath)", radar)
+            self.assertIn("$expectedBuild = '25710663'", radar)
+            self.assertNotIn("@TOOLKIT_SHA256@", setup)
+            self.assertNotIn("@UNINSTALLER_SHA256@", setup)
+            with ZipFile(kit / "RtVRadarLoot.vmz") as vmz:
+                self.assertIn(f'version="{version}"', vmz.read("mod.txt").decode())
+                self.assertNotIn(".hook(", vmz.read("RtVRadarShotBridge.gd").decode())
+            self.assertEqual(old_installer, (builder.TOOLS / "install-sobolyatnik-v0.1.12.ps1").read_bytes())
+            self.assertTrue((kit / "metro" / "LICENSE").is_file())
+
+    def test_rejects_non_windows_or_wrong_architecture(self):
+        with self.assertRaisesRegex(ValueError, "not a Windows"):
+            builder.verify_pe(b"ELF")
+        fake = bytearray(512)
+        fake[:2] = b"MZ"
+        struct.pack_into("<I", fake, 0x3C, 0x80)
+        fake[0x80:0x84] = b"PE\0\0"
+        struct.pack_into("<H", fake, 0x84, 0x014C)
+        with self.assertRaisesRegex(ValueError, "Windows x64"):
+            builder.verify_pe(fake)
+
+
+if __name__ == "__main__":
+    unittest.main()

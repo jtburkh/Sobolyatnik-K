@@ -13,7 +13,10 @@ param(
     [string] $PreviousBundleRadarInstallerPath,
     [string] $PreviousBundleArchivePath,
     [string] $PreviousBundleVersion = '0.1.9-experimental',
+    [string] $PreviousBundleGameBuild,
     [string] $ExpectedBundleVersion = '0.1.11-experimental',
+    [string] $ExpectedGameBuild = '25632875',
+    [string] $ExpectedToolkitVersion,
     [string] $ExpectedRadarHash = '66FD97A4C1487BE6688EF94B59EE709A3BAA8C7886C490D2F03AF7B8C395EEFC',
     [switch] $TestIntegration,
     [switch] $CheckToolkitHelp
@@ -48,7 +51,7 @@ try {
     New-Item -ItemType Directory -Force -Path $game, $env:LOCALAPPDATA, $env:APPDATA | Out-Null
     [IO.File]::WriteAllText((Join-Path $game 'RTV.exe'), 'fixture game binary')
     [IO.File]::WriteAllText((Join-Path $game 'RTV.pck'), 'fixture game archive')
-    [IO.File]::WriteAllText((Join-Path $gameApps 'appmanifest_1963610.acf'), '"installdir" "Road to Vostok"' + "`n" + '"buildid" "25632875"')
+    [IO.File]::WriteAllText((Join-Path $gameApps 'appmanifest_1963610.acf'), '"installdir" "Road to Vostok"' + "`n" + '"buildid" "' + $ExpectedGameBuild + '"')
     # A small synthetic PE header; only disposable file handling is tested here.
     # The real compiled Toolkit is built, executed and archived on Windows CI.
     $fakeExe = Join-Path $root 'rtv-toolkit.exe'
@@ -80,6 +83,9 @@ try {
     if ($CheckToolkitHelp) {
         $helpText = & $installedExe --help | Out-String
         Check ($LASTEXITCODE -eq 0 -and $helpText -match 'rtv-toolkit --check') 'Installed Toolkit does not run'
+        if ($ExpectedToolkitVersion) {
+            Check ($helpText -match ('rtv-toolkit ' + [regex]::Escape($ExpectedToolkitVersion))) 'Toolkit does not report the test kit version'
+        }
     }
     if ($TestIntegration) {
         $menu = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Sobolyatnik-K'
@@ -120,7 +126,7 @@ try {
     Check ((Get-FileHash $radar -Algorithm SHA256).Hash -eq $ExpectedRadarHash) 'Upgrade replaced the tested VMZ'
     & $rendered -Uninstall -NoIntegration:(-not $TestIntegration) | Out-Null
     Check ((Get-FileHash $override -Algorithm SHA256).Hash -eq $overrideHash) 'Uninstall overwrote Metro state'
-    Fails { & $rendered -GamePath $game -ArchivePath $archive -ToolkitPath (Join-Path $root 'missing.exe') -UninstallerPath $uninstaller -RadarInstallerPath $legacy -NoIntegration } 'Cannot find path'
+    Fails { & $rendered -GamePath $game -ArchivePath $archive -ToolkitPath (Join-Path $root 'missing.exe') -UninstallerPath $uninstaller -RadarInstallerPath $legacy -LoaderSourceDirectory $loader -NoIntegration } 'Cannot find path'
     Check (-not (Test-Path -LiteralPath $radar)) 'Missing Toolkit source unexpectedly installed radar'
     if ($PreviousBundleInstallerPath -or $PreviousBundleToolkitPath -or $PreviousBundleUninstallerPath) {
         Check ([bool]($PreviousBundleInstallerPath -and $PreviousBundleToolkitPath -and $PreviousBundleUninstallerPath)) 'Pass all three previous bundle assets together'
@@ -138,10 +144,17 @@ try {
             ToolkitPath = $oldExe; RadarInstallerPath = $oldRadarInstaller; UninstallerPath = $oldUninstaller
         }
         if (-not $TestIntegration) { $oldArgs.NoIntegration = $true }
+        if ($PreviousBundleGameBuild) {
+            [IO.File]::WriteAllText((Join-Path $gameApps 'appmanifest_1963610.acf'), '"installdir" "Road to Vostok"' + "`n" + '"buildid" "' + $PreviousBundleGameBuild + '"')
+        }
         & $oldBundle @oldArgs | Out-Null
+        if ($PreviousBundleGameBuild) {
+            [IO.File]::WriteAllText((Join-Path $gameApps 'appmanifest_1963610.acf'), '"installdir" "Road to Vostok"' + "`n" + '"buildid" "' + $ExpectedGameBuild + '"')
+        }
         Check (([IO.File]::ReadAllText($receipt) | ConvertFrom-Json).Version -eq $PreviousBundleVersion) 'Previous bundle receipt missing'
         $previousHash = (Get-FileHash $installedExe -Algorithm SHA256).Hash
-        Fails { & $rendered @args } ("v$(($PreviousBundleVersion -split '-')[0]) is installed")
+        $bundleArgs = $args # $args is automatic inside scriptblocks; capture with a different name.
+        Fails { & $rendered @bundleArgs } ("v$(($PreviousBundleVersion -split '-')[0]) is installed")
         Check ((Get-FileHash $installedExe -Algorithm SHA256).Hash -eq $previousHash) 'Collision overwrote v0.1.9 Toolkit'
         Check (([IO.File]::ReadAllText($receipt) | ConvertFrom-Json).Version -eq $PreviousBundleVersion) 'Collision rewrote previous receipt'
         Check ((Get-FileHash $radar -Algorithm SHA256).Hash -eq (Get-FileHash $oldArchive -Algorithm SHA256).Hash) 'Collision changed radar'
