@@ -30,6 +30,9 @@ jobs:
       - name: Check Build 2 catalog consistency
         run: python3 -m unittest discover -s tests/catalog -p 'test_*.py'
 
+      - name: Check synthetic Steam build gate fixtures (offline only)
+        run: python3 -m unittest discover -s tests/steam -p 'test_*.py'
+
       - name: Package telemetry bridge
         run: |
           python3 tools/package_telemetry_mod.py

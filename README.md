@@ -79,6 +79,8 @@ The terminal also has a live Radar tab (`4`) when telemetry is configured, but i
 
 ## Develop and verify
 
+**Before a source push:** run `python3 tools/check_steam_build.py` (or enable the repository-local `.githooks/pre-push`). The [Steam build check skill](.agents/skills/steam-build-gate/SKILL.md) compares the live public branch, your local Steam appmanifest and the version-pinned installer and **warns without blocking source pushes**. Use `--strict` for release-readiness checks; matching IDs alone never prove mod compatibility. As of the 0.2.0.5 hotfix, Steam public build `25710663` differs from the v0.1.12 installer's tested `25632875`; do not bypass its refusal or install the preview VMZ on the updated game without controlled revalidation.
+
 The [v0.1.12 release](https://github.com/jtburkh/Sobolyatnik-K/releases/tag/v0.1.12-experimental) includes the versioned Shot Alerts VMZ (`6d2d06e55831f174483595d44fde6ba5c3a50f7fec183d2c66a5953ecb98efdd`). Build it with `python3 tools/package_radar_shots_release.py`; for optional Godot 4.6.3 mock tests of the exact package use `python3 tools/test_radar_shots.py --engine /path/to/godot --release-archive`. The older `tools/package_radar_lite.py` produces the unchanged v0.1.8 rollback VMZ (`66fd97a4…`), **not** the current installer asset. Other probe VMZs, including the standalone Shot Alerts candidate, are not additional mods to install alongside the published radar. The [runtime research](docs/runtime-discovery.md) and [third-party notices](THIRD_PARTY_NOTICES.md) provide further context. Neither private saves, dumps, game binaries, nor local builds are in this repository.
 
 ```bash

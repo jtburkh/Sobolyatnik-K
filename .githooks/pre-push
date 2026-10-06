@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Advisory only: report Steam changes without blocking source pushes.
+# Enable with: git config --local core.hooksPath .githooks
+set -euo pipefail
+root="$(git rev-parse --show-toplevel)"
+if ! python3 "$root/tools/check_steam_build.py"; then
+    echo 'WARNING: Steam build check failed unexpectedly; source push not blocked. Do not treat this as release clearance.' >&2
+fi
+exit 0
