@@ -107,7 +107,7 @@ jobs:
           python3 tools/package_radar_range.py
           unzip -t dist/probes/RtVRadarRangeCandidate.vmz
           unzip -p dist/probes/RtVRadarRangeCandidate.vmz mod.txt | grep -F 'id="rtv_toolkit_radar_range_candidate"'
-          unzip -p dist/probes/RtVRadarRangeCandidate.vmz mod.txt | grep -F 'version="0.1.15-experimental.1"'
+          unzip -p dist/probes/RtVRadarRangeCandidate.vmz mod.txt | grep -F 'version="0.1.16-experimental.1"'
           unzip -p dist/probes/RtVRadarRangeCandidate.vmz RtVRadarLiteOverlay.gd | grep -F 'const RANGES_METRES := [50.0, 100.0, 200.0, 400.0]'
           ! unzip -p dist/probes/RtVRadarRangeCandidate.vmz RtVRadarShotBridge.gd | grep -F '.hook('
       - name: Share unreleased range preview for controlled owner testing
@@ -234,7 +234,7 @@ jobs:
         shell: powershell
         run: |
           $version = & python -c "import tomllib;print(tomllib.load(open('Cargo.toml','rb'))['package']['version'])"
-          if ($LASTEXITCODE -ne 0 -or $version -ne '0.1.15-experimental.1') { throw 'Candidate version is not in sync with this artifact label' }
+          if ($LASTEXITCODE -ne 0 -or $version -ne '0.1.16-experimental.1') { throw 'Candidate version is not in sync with this artifact label' }
           $helpText = & ./dist/windows/rtv-toolkit.exe --help | Out-String
           if ($LASTEXITCODE -ne 0 -or $helpText -notmatch ('rtv-toolkit ' + [regex]::Escape($version))) { throw 'Windows EXE version mismatch' }
           python tools/build_hotfix_test_kit.py --toolkit dist/windows/rtv-toolkit.exe --metro dist/metro --output dist/hotfix-test-kit
@@ -245,7 +245,7 @@ jobs:
       - name: Share validated kit (UNRELEASED; not compatibility clearance)
         uses: actions/upload-artifact@v4
         with:
-          name: UNRELEASED-0.1.15-experimental.1-build25710663-Windows-bundle
+          name: UNRELEASED-0.1.16-experimental.1-build25710663-Windows-bundle
           path: dist/hotfix-test-kit/*
           if-no-files-found: error
           retention-days: 30
