@@ -14,6 +14,35 @@ If you installed v0.1.17 or v0.1.18, **close RTV and uninstall that bundle using
 
 The installer verifies the individual files, refuses conflicting mods and bundles, and will not run while the game is open. **Steam build `25710663` was reviewed. If yours differs, setup warns but lets you continue; compatibility on another build is unverified.** Back up important saves before trying a new mod.
 
+**Radar shows F7/F8 but no F9 after installing v0.1.16?** Metro 3.2.1 can keep an older, F7/F8-only `RtVRadarLoot.zip` in its mount cache after the mod is replaced. The official loader reuses that cache when its timestamp is newer than the VMZ's; the ZIP above timestamps its members in 2020. With RTV **closed**, paste this PowerShell block on the affected computer. It verifies the installed v0.1.16 receipt and VMZ, backs up **only** a mismatched radar cache to `%LOCALAPPDATA%\Sobolyatnik-K\backups`, then removes that stale cache so Metro rebuilds it from the installed VMZ on next launch. It does not edit saves, game binaries or the Metro loader. If it reports no cache or a matching cache, nothing is changed.
+
+```powershell
+$ErrorActionPreference='Stop'
+if (Get-Process -Name RTV -ErrorAction SilentlyContinue) { throw 'Close Road to Vostok first.' }
+$receiptPath=Join-Path $env:LOCALAPPDATA 'Sobolyatnik-K\installed.json'
+if (-not (Test-Path -LiteralPath $receiptPath -PathType Leaf)) { throw 'No bundle receipt: install v0.1.16 first.' }
+$receipt=Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json
+$expected='276844b086eb27f559b71aa74743f49e6ee045c639a7203b1b1ce02ca98be1a4'
+if ($receipt.Version -ne '0.1.16-experimental.1' -or $receipt.RadarSha256 -ine $expected) { throw 'This is not the verified v0.1.16 bundle; no cache was changed.' }
+$vmz=Join-Path $receipt.GamePath 'mods\RtVRadarLoot.vmz'
+if ((Get-FileHash -LiteralPath $vmz -Algorithm SHA256).Hash -ine $expected) { throw 'Installed VMZ hash differs from v0.1.16; no cache was changed.' }
+$cache=Join-Path $env:APPDATA 'Road to Vostok\vmz_mount_cache\RtVRadarLoot.zip'
+if (-not (Test-Path -LiteralPath $cache)) { Write-Host 'No Metro radar cache found; nothing was changed.'; return }
+$cacheInfo=Get-Item -LiteralPath $cache
+if (-not $cacheInfo.PSIsContainer -and ($cacheInfo.Attributes -band [IO.FileAttributes]::ReparsePoint)) { throw 'Cache is a link; refusing to change it.' }
+if ($cacheInfo.PSIsContainer) { throw 'Cache path is a directory; refusing to change it.' }
+$oldHash=(Get-FileHash -LiteralPath $cache -Algorithm SHA256).Hash
+if ($oldHash -ieq $expected) { Write-Host 'Metro radar cache already matches v0.1.16; no change made.'; return }
+$backupDir=Join-Path $env:LOCALAPPDATA 'Sobolyatnik-K\backups'
+New-Item -ItemType Directory -Path $backupDir -Force | Out-Null
+$backup=Join-Path $backupDir ('RtVRadarLoot-cache-' + [guid]::NewGuid().ToString('N') + '.zip')
+Copy-Item -LiteralPath $cache -Destination $backup -ErrorAction Stop
+if ((Get-FileHash -LiteralPath $backup -Algorithm SHA256).Hash -ine $oldHash) { throw 'Cache backup did not verify; cache was not removed.' }
+if (Get-Process -Name RTV -ErrorAction SilentlyContinue) { throw 'Game started during backup; cache was not removed.' }
+Remove-Item -LiteralPath $cache -Force -ErrorAction Stop
+Write-Host "Backed up old radar cache. Metro will rebuild it from verified v0.1.16 on the next game launch. Backup: $backup"
+```
+
 **Uninstall:** Close the game and Toolkit, then use *Settings → Apps → Installed apps → Sobolyatnik-K* (or its Start Menu shortcut). Uninstall preserves Metro, saves and backups. See the [v0.1.16 installation guide and known limitations](docs/windows-0.1.16.md) or [download the v0.1.16 ZIP and checksum manually](https://github.com/jtburkh/Sobolyatnik-K/releases/tag/v0.1.16-experimental.1).
 
 ## In game
