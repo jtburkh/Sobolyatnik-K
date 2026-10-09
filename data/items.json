@@ -988,6 +988,19 @@
     "max_amount": null
   },
   {
+    "category": "Books",
+    "id": "Magazine_Crosswords",
+    "name": "Magazine (Crosswords)",
+    "path": "res://Items/Books/Magazine_Crosswords.tres",
+    "width": 2,
+    "height": 2,
+    "stackable": false,
+    "show_condition": false,
+    "show_amount": false,
+    "default_amount": 0,
+    "max_amount": null
+  },
+  {
     "category": "Clothing",
     "id": "Boots_Combat",
     "name": "Combat Boots",
@@ -1990,6 +2003,19 @@
   },
   {
     "category": "Electronics",
+    "id": "Phoenix",
+    "name": "Phoenix",
+    "path": "res://Items/Electronics/Phoenix/Phoenix.tres",
+    "width": 1,
+    "height": 2,
+    "stackable": false,
+    "show_condition": true,
+    "show_amount": false,
+    "default_amount": 0,
+    "max_amount": null
+  },
+  {
+    "category": "Electronics",
     "id": "Polaris",
     "name": "Polaris",
     "path": "res://Items/Electronics/Polaris/Polaris.tres",
@@ -2366,6 +2392,19 @@
     "max_amount": null
   },
   {
+    "category": "Lore",
+    "id": "Suitcase_Driver",
+    "name": "Suitcase (Driver)",
+    "path": "res://Items/Lore/Suitcase_Driver/Suitcase_Driver.tres",
+    "width": 5,
+    "height": 2,
+    "stackable": false,
+    "show_condition": false,
+    "show_amount": false,
+    "default_amount": 0,
+    "max_amount": null
+  },
+  {
     "category": "Medical",
     "id": "AFAK",
     "name": "AFAK",
@@ -2474,6 +2513,19 @@
     "id": "Gum",
     "name": "Gum",
     "path": "res://Items/Medical/Gum/Gum.tres",
+    "width": 1,
+    "height": 1,
+    "stackable": false,
+    "show_condition": false,
+    "show_amount": false,
+    "default_amount": 0,
+    "max_amount": null
+  },
+  {
+    "category": "Medical",
+    "id": "Hand_Warmer",
+    "name": "Hand Warmer",
+    "path": "res://Items/Medical/Hand_Warmer/Hand_Warmer.tres",
     "width": 1,
     "height": 1,
     "stackable": false,
@@ -2653,6 +2705,19 @@
   },
   {
     "category": "Misc",
+    "id": "Air_Freshener",
+    "name": "Air Freshener",
+    "path": "res://Items/Misc/Air_Freshener/Air_Freshener.tres",
+    "width": 1,
+    "height": 1,
+    "stackable": false,
+    "show_condition": false,
+    "show_amount": false,
+    "default_amount": 0,
+    "max_amount": null
+  },
+  {
+    "category": "Misc",
     "id": "Aluminum_Foil",
     "name": "Aluminum Foil",
     "path": "res://Items/Misc/Aluminum_Foil/Aluminum_Foil.tres",
@@ -2731,6 +2796,32 @@
   },
   {
     "category": "Misc",
+    "id": "Radiator_Engine",
+    "name": "Engine Radiator",
+    "path": "res://Items/Misc/Radiator_Engine/Radiator_Engine.tres",
+    "width": 5,
+    "height": 3,
+    "stackable": false,
+    "show_condition": false,
+    "show_amount": false,
+    "default_amount": 0,
+    "max_amount": null
+  },
+  {
+    "category": "Misc",
+    "id": "Glue",
+    "name": "Glue",
+    "path": "res://Items/Misc/Glue/Glue.tres",
+    "width": 1,
+    "height": 1,
+    "stackable": false,
+    "show_condition": false,
+    "show_amount": false,
+    "default_amount": 0,
+    "max_amount": null
+  },
+  {
+    "category": "Misc",
     "id": "Happy_Stove",
     "name": "Happy Stove",
     "path": "res://Items/Misc/Happy_Stove/Happy_Stove.tres",
@@ -2751,6 +2842,19 @@
     "height": 3,
     "stackable": false,
     "show_condition": true,
+    "show_amount": false,
+    "default_amount": 0,
+    "max_amount": null
+  },
+  {
+    "category": "Misc",
+    "id": "Leather",
+    "name": "Leather",
+    "path": "res://Items/Misc/Leather/Leather.tres",
+    "width": 1,
+    "height": 2,
+    "stackable": false,
+    "show_condition": false,
     "show_amount": false,
     "default_amount": 0,
     "max_amount": null
@@ -2835,6 +2939,19 @@
   },
   {
     "category": "Misc",
+    "id": "Museum_Plate",
+    "name": "Museum Plate",
+    "path": "res://Items/Misc/Museum_Plate/Museum_Plate.tres",
+    "width": 3,
+    "height": 1,
+    "stackable": false,
+    "show_condition": false,
+    "show_amount": false,
+    "default_amount": 0,
+    "max_amount": null
+  },
+  {
+    "category": "Misc",
     "id": "Nails",
     "name": "Nails",
     "path": "res://Items/Misc/Nails/Nails.tres",
@@ -2879,6 +2996,19 @@
     "path": "res://Items/Misc/Rags/Rags.tres",
     "width": 1,
     "height": 2,
+    "stackable": false,
+    "show_condition": false,
+    "show_amount": false,
+    "default_amount": 0,
+    "max_amount": null
+  },
+  {
+    "category": "Misc",
+    "id": "Screws",
+    "name": "Screws",
+    "path": "res://Items/Misc/Screws/Screws.tres",
+    "width": 2,
+    "height": 1,
     "stackable": false,
     "show_condition": false,
     "show_amount": false,

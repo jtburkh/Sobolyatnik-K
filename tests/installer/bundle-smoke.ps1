@@ -113,7 +113,7 @@ try {
         Check (-not (Test-Path -LiteralPath (Join-Path $menu 'Sobolyatnik-K Toolkit.lnk')) -and
                -not (Test-Path -LiteralPath $reg)) 'Uninstall left Start Menu or Windows entry'
     }
-    Check ((Get-FileHash (Join-Path $game 'modloader.gd') -Algorithm SHA256).Hash -eq '60FCF7FEEC0A47C6472E3B7A190B46987B374618AE3D149C081B222542BC6135') 'Uninstall changed Metro'
+    Check ((Get-FileHash (Join-Path $game 'modloader.gd') -Algorithm SHA256).Hash -eq (Get-FileHash (Join-Path $loader 'modloader.gd') -Algorithm SHA256).Hash) 'Uninstall changed Metro'
     Check ([IO.File]::ReadAllText((Join-Path $game 'RTV.exe')) -eq 'fixture game binary') 'Game binary changed'
     # Upgrade someone who already installed v0.1.8 on another computer. Metro's
     # override.cfg is rewritten by its two-pass startup; leave those bytes alone.

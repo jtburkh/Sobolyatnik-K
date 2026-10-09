@@ -121,7 +121,7 @@ mod tests {
     #[test]
     fn build_two_items_are_searchable_with_game_footprints() {
         let catalog = Catalog::load().unwrap();
-        assert_eq!(catalog.items().len(), 263);
+        assert_eq!(catalog.items().len(), 273);
         let kantamus = catalog
             .get("res://Items/Backpacks/Backpack_Kantamus/Backpack_Kantamus.tres")
             .unwrap();
@@ -154,6 +154,19 @@ mod tests {
                 .unwrap()
                 .size(false),
             (1, 2)
+        );
+        assert_eq!(
+            catalog
+                .get("res://Items/Misc/Radiator_Engine/Radiator_Engine.tres")
+                .unwrap()
+                .size(false),
+            (5, 3)
+        );
+        assert!(
+            catalog
+                .filtered_indices("crosswords")
+                .iter()
+                .any(|&index| { catalog.items()[index].id == "Magazine_Crosswords" })
         );
     }
 

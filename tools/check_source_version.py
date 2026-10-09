@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Require a new coherent Toolkit/radar prerelease version for code pushes.
+"""Require a new coherent Toolkit/radar SemVer for code pushes.
 
 Use --base <remote tip> in the pre-push hook and CI. Documentation-only
 changes do not require a bump; any change to shipped code, tests or build

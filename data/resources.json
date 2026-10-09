@@ -1140,6 +1140,21 @@
     "scope": "inventory"
   },
   {
+    "category": "Books",
+    "id": "Magazine_Crosswords",
+    "name": "Magazine (Crosswords)",
+    "path": "res://Items/Books/Magazine_Crosswords.tres",
+    "width": 2,
+    "height": 2,
+    "stackable": false,
+    "show_condition": false,
+    "show_amount": false,
+    "default_amount": 0,
+    "max_amount": null,
+    "database_key": "Magazine_Crosswords",
+    "scope": "inventory"
+  },
+  {
     "category": "Clothing",
     "id": "Boots_Combat",
     "name": "Combat Boots",
@@ -2296,6 +2311,21 @@
   },
   {
     "category": "Electronics",
+    "id": "Phoenix",
+    "name": "Phoenix",
+    "path": "res://Items/Electronics/Phoenix/Phoenix.tres",
+    "width": 1,
+    "height": 2,
+    "stackable": false,
+    "show_condition": true,
+    "show_amount": false,
+    "default_amount": 0,
+    "max_amount": null,
+    "database_key": "Phoenix",
+    "scope": "inventory"
+  },
+  {
+    "category": "Electronics",
     "id": "Polaris",
     "name": "Polaris",
     "path": "res://Items/Electronics/Polaris/Polaris.tres",
@@ -2461,6 +2491,21 @@
   },
   {
     "category": "Furniture",
+    "id": "Bookshelf_F",
+    "name": "Bookshelf",
+    "path": "res://Assets/Bookshelf/Bookshelf_F.tres",
+    "width": 8,
+    "height": 6,
+    "stackable": false,
+    "show_condition": false,
+    "show_amount": false,
+    "default_amount": 0,
+    "max_amount": null,
+    "database_key": "Bookshelf",
+    "scope": "furniture"
+  },
+  {
+    "category": "Furniture",
     "id": "Cabinet_Medical_F",
     "name": "Cabinet (Medical)",
     "path": "res://Assets/Cabinet_Medical/Cabinet_Medical_F.tres",
@@ -2502,6 +2547,21 @@
     "default_amount": 0,
     "max_amount": null,
     "database_key": "Cabinet_Wood",
+    "scope": "furniture"
+  },
+  {
+    "category": "Furniture",
+    "id": "Calendar_F",
+    "name": "Calendar",
+    "path": "res://Assets/Calendar/Calendar_F.tres",
+    "width": 1,
+    "height": 2,
+    "stackable": false,
+    "show_condition": false,
+    "show_amount": false,
+    "default_amount": 0,
+    "max_amount": null,
+    "database_key": "Calendar",
     "scope": "furniture"
   },
   {
@@ -2772,6 +2832,21 @@
     "default_amount": 0,
     "max_amount": null,
     "database_key": "Rack_Coat",
+    "scope": "furniture"
+  },
+  {
+    "category": "Furniture",
+    "id": "Radio_F",
+    "name": "Radio",
+    "path": "res://Assets/Radio/Radio_F.tres",
+    "width": 2,
+    "height": 1,
+    "stackable": false,
+    "show_condition": false,
+    "show_amount": false,
+    "default_amount": 0,
+    "max_amount": null,
+    "database_key": "Radio",
     "scope": "furniture"
   },
   {
@@ -3360,6 +3435,21 @@
     "scope": "inventory"
   },
   {
+    "category": "Lore",
+    "id": "Suitcase_Driver",
+    "name": "Suitcase (Driver)",
+    "path": "res://Items/Lore/Suitcase_Driver/Suitcase_Driver.tres",
+    "width": 5,
+    "height": 2,
+    "stackable": false,
+    "show_condition": false,
+    "show_amount": false,
+    "default_amount": 0,
+    "max_amount": null,
+    "database_key": "Suitcase_Driver",
+    "scope": "inventory"
+  },
+  {
     "category": "Medical",
     "id": "AFAK",
     "name": "AFAK",
@@ -3492,6 +3582,21 @@
     "default_amount": 0,
     "max_amount": null,
     "database_key": "Gum",
+    "scope": "inventory"
+  },
+  {
+    "category": "Medical",
+    "id": "Hand_Warmer",
+    "name": "Hand Warmer",
+    "path": "res://Items/Medical/Hand_Warmer/Hand_Warmer.tres",
+    "width": 1,
+    "height": 1,
+    "stackable": false,
+    "show_condition": false,
+    "show_amount": false,
+    "default_amount": 0,
+    "max_amount": null,
+    "database_key": "Hand_Warmer",
     "scope": "inventory"
   },
   {
@@ -3691,6 +3796,21 @@
   },
   {
     "category": "Misc",
+    "id": "Air_Freshener",
+    "name": "Air Freshener",
+    "path": "res://Items/Misc/Air_Freshener/Air_Freshener.tres",
+    "width": 1,
+    "height": 1,
+    "stackable": false,
+    "show_condition": false,
+    "show_amount": false,
+    "default_amount": 0,
+    "max_amount": null,
+    "database_key": "Air_Freshener",
+    "scope": "inventory"
+  },
+  {
+    "category": "Misc",
     "id": "Aluminum_Foil",
     "name": "Aluminum Foil",
     "path": "res://Items/Misc/Aluminum_Foil/Aluminum_Foil.tres",
@@ -3781,6 +3901,36 @@
   },
   {
     "category": "Misc",
+    "id": "Radiator_Engine",
+    "name": "Engine Radiator",
+    "path": "res://Items/Misc/Radiator_Engine/Radiator_Engine.tres",
+    "width": 5,
+    "height": 3,
+    "stackable": false,
+    "show_condition": false,
+    "show_amount": false,
+    "default_amount": 0,
+    "max_amount": null,
+    "database_key": "Radiator_Engine",
+    "scope": "inventory"
+  },
+  {
+    "category": "Misc",
+    "id": "Glue",
+    "name": "Glue",
+    "path": "res://Items/Misc/Glue/Glue.tres",
+    "width": 1,
+    "height": 1,
+    "stackable": false,
+    "show_condition": false,
+    "show_amount": false,
+    "default_amount": 0,
+    "max_amount": null,
+    "database_key": "Glue",
+    "scope": "inventory"
+  },
+  {
+    "category": "Misc",
     "id": "Happy_Stove",
     "name": "Happy Stove",
     "path": "res://Items/Misc/Happy_Stove/Happy_Stove.tres",
@@ -3807,6 +3957,21 @@
     "default_amount": 0,
     "max_amount": null,
     "database_key": "Jerry_Can",
+    "scope": "inventory"
+  },
+  {
+    "category": "Misc",
+    "id": "Leather",
+    "name": "Leather",
+    "path": "res://Items/Misc/Leather/Leather.tres",
+    "width": 1,
+    "height": 2,
+    "stackable": false,
+    "show_condition": false,
+    "show_amount": false,
+    "default_amount": 0,
+    "max_amount": null,
+    "database_key": "Leather",
     "scope": "inventory"
   },
   {
@@ -3901,6 +4066,21 @@
   },
   {
     "category": "Misc",
+    "id": "Museum_Plate",
+    "name": "Museum Plate",
+    "path": "res://Items/Misc/Museum_Plate/Museum_Plate.tres",
+    "width": 3,
+    "height": 1,
+    "stackable": false,
+    "show_condition": false,
+    "show_amount": false,
+    "default_amount": 0,
+    "max_amount": null,
+    "database_key": "Museum_Plate",
+    "scope": "inventory"
+  },
+  {
+    "category": "Misc",
     "id": "Nails",
     "name": "Nails",
     "path": "res://Items/Misc/Nails/Nails.tres",
@@ -3957,6 +4137,21 @@
     "default_amount": 0,
     "max_amount": null,
     "database_key": "Rags",
+    "scope": "inventory"
+  },
+  {
+    "category": "Misc",
+    "id": "Screws",
+    "name": "Screws",
+    "path": "res://Items/Misc/Screws/Screws.tres",
+    "width": 2,
+    "height": 1,
+    "stackable": false,
+    "show_condition": false,
+    "show_amount": false,
+    "default_amount": 0,
+    "max_amount": null,
+    "database_key": "Screws",
     "scope": "inventory"
   },
   {

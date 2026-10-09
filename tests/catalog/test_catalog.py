@@ -18,8 +18,8 @@ class CatalogTests(unittest.TestCase):
         items = load('items.json')
         resources = load('resources.json')
         weapons = load('weapon-stats.json')
-        self.assertEqual(manifest['steam_build_id'], '25632875')
-        self.assertEqual((len(items), len(resources), len(weapons)), (263, 305, 29))
+        self.assertEqual(manifest['steam_build_id'], '25837777')
+        self.assertEqual((len(items), len(resources), len(weapons)), (273, 318, 29))
         self.assertEqual(manifest['registered_resources'], len(resources))
         self.assertEqual(manifest['inventory_resources'], len(items))
         self.assertEqual(manifest['furniture_resources'], len(resources) - len(items))
@@ -53,6 +53,15 @@ class CatalogTests(unittest.TestCase):
             'Jatimatic_Magazine': (1, 2), 'M28': (7, 2), 'M28_MOD': (7, 2),
         }.items():
             with self.subTest(item=id):
+                self.assertEqual((by_id[id]['width'], by_id[id]['height']), footprint)
+        for id, footprint in {
+            'Magazine_Crosswords': (2, 2), 'Phoenix': (1, 2),
+            'Suitcase_Driver': (5, 2), 'Hand_Warmer': (1, 1),
+            'Air_Freshener': (1, 1), 'Glue': (1, 1),
+            'Leather': (1, 2), 'Museum_Plate': (3, 1),
+            'Radiator_Engine': (5, 3), 'Screws': (2, 1),
+        }.items():
+            with self.subTest(patch_item=id):
                 self.assertEqual((by_id[id]['width'], by_id[id]['height']), footprint)
         for path in (
             'res://Items/Medical/Bandage/Bandage.tres',

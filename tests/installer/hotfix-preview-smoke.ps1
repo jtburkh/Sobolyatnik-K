@@ -4,6 +4,7 @@
 param(
     [Parameter(Mandatory = $true)][string] $KitPath,
     [Parameter(Mandatory = $true)][string] $LoaderSourceDirectory,
+    [string] $PreviousLoaderDirectory,
     [switch] $TestIntegration
 )
 Set-StrictMode -Version Latest
@@ -29,6 +30,7 @@ try {
     $radar = Join-Path $game 'mods\RtVRadarLoot.vmz'
     $receipt = Join-Path $env:LOCALAPPDATA 'Sobolyatnik-K\installed.json'
     $tool = Join-Path $env:LOCALAPPDATA 'Programs\Sobolyatnik-K\rtv-toolkit.exe'
+    $cache = Join-Path $env:APPDATA 'Road to Vostok\vmz_mount_cache\RtVRadarLoot.zip'
     $fixtureKit = Join-Path $root 'TestKit'
     New-Item -ItemType Directory -Force -Path $game, (Split-Path $save), $fixtureKit | Out-Null
     Copy-Item -Path (Join-Path $kit '*') -Destination $fixtureKit -Recurse -Force
@@ -46,12 +48,24 @@ try {
     $fixtureArgs = @{ GamePath = $game; NoIntegration = (-not $TestIntegration) }
     foreach ($otherBuild in @('25632875', '25799999')) {
         [IO.File]::WriteAllText($manifest, $manifestPrefix + '"buildid" "' + $otherBuild + '"')
-        $expectedWarning = 'build ' + $otherBuild + ' differs from the reviewed build 25710663'
+        $expectedWarning = 'build ' + $otherBuild + ' differs from the reviewed build 25837777'
         $warning = & $runner @fixtureArgs -DryRun 3>&1 | Out-String
         Check ($warning -match [regex]::Escape($expectedWarning)) "Steam build $otherBuild did not warn in dry run"
         Check (-not (Test-Path -LiteralPath $radar) -and -not (Test-Path -LiteralPath $receipt)) 'Mismatched-build dry run wrote installation files'
+        New-Item -ItemType Directory -Force -Path (Split-Path $cache) | Out-Null
+        [IO.File]::WriteAllText($cache, 'authentic-looking but stale radar cache fixture')
+        $staleHash = (Get-FileHash -LiteralPath $cache -Algorithm SHA256).Hash
         $warning = & $runner @fixtureArgs 3>&1 | Out-String
         Check ($warning -match [regex]::Escape($expectedWarning)) "Steam build $otherBuild did not warn on install"
+        Check (-not (Test-Path -LiteralPath $cache)) 'Installer did not remove stale radar-only cache'
+        $cacheBackups = @(Get-ChildItem -LiteralPath (Join-Path $env:LOCALAPPDATA 'Sobolyatnik-K\backups') -Filter 'RtVRadarLoot-cache-*.zip' -File)
+        Check (@($cacheBackups | Where-Object { (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash -eq $staleHash }).Count -gt 0) 'Stale radar cache was not backed up with verified bytes'
+        Copy-Item -LiteralPath $radar -Destination $cache
+        & $runner @fixtureArgs | Out-Null
+        Check ((Get-FileHash -LiteralPath $cache -Algorithm SHA256).Hash -eq $archiveHash) 'Idempotent setup altered a matching radar cache'
+        [IO.File]::WriteAllText($cache, 'second stale cache fixture')
+        & $runner @fixtureArgs | Out-Null
+        Check (-not (Test-Path -LiteralPath $cache)) 'Idempotent setup did not reconcile stale cache'
         Check ((Get-FileHash -LiteralPath $radar -Algorithm SHA256).Hash -eq $archiveHash) 'Other valid Steam build did not install the verified radar'
         Check ((Get-FileHash -LiteralPath $tool -Algorithm SHA256).Hash -eq $exeHash) 'Other valid Steam build did not install the verified Toolkit'
         & $runner @fixtureArgs -Uninstall | Out-Null
@@ -59,11 +73,11 @@ try {
     }
     [IO.File]::WriteAllText($manifest, $manifestPrefix + '"buildid" "invalid"')
     Fails { & $runner @fixtureArgs -DryRun } 'build ID missing or invalid'
-    [IO.File]::WriteAllText($manifest, '"appid" "999"' + "`n" + '"buildid" "25710663"')
+    [IO.File]::WriteAllText($manifest, '"appid" "999"' + "`n" + '"buildid" "25837777"')
     Fails { & $runner @fixtureArgs -DryRun } 'not for Road to Vostok'
     Remove-Item -LiteralPath $manifest -Force
     Fails { & $runner @fixtureArgs -DryRun } 'appmanifest not found'
-    [IO.File]::WriteAllText($manifest, $manifestPrefix + '"buildid" "25710663"')
+    [IO.File]::WriteAllText($manifest, $manifestPrefix + '"buildid" "25837777"')
     Remove-Item -LiteralPath $vmz -Force
     Fails { & $runner @fixtureArgs -DryRun } 'incomplete'
     Copy-Item -LiteralPath (Join-Path $kit 'RtVRadarLoot.vmz') -Destination $vmz -Force
@@ -83,7 +97,7 @@ try {
     if ($TestIntegration) {
         Check ((Test-Path -LiteralPath (Join-Path $menu 'Sobolyatnik-K Toolkit.lnk')) -and (Test-Path -LiteralPath $reg)) 'Windows integration missing'
         $entry = Get-ItemProperty -LiteralPath $reg
-        Check ($entry.DisplayName -eq 'Sobolyatnik-K (Experimental)' -and $entry.DisplayVersion -eq $installed.Version) 'Windows entry is not visibly labeled as this test version'
+        Check ($entry.DisplayName -eq 'Sobolyatnik-K' -and $entry.DisplayVersion -eq $installed.Version) 'Windows entry is not visibly labeled as this test version'
     }
     [IO.File]::WriteAllText($tool, 'tampered after install')
     Fails { & $runner @fixtureArgs -Uninstall } 'differs from the installed release'
@@ -95,8 +109,23 @@ try {
     Check ([IO.File]::ReadAllText($save) -eq 'untouched synthetic save') 'Save was modified'
     Check ([IO.File]::ReadAllText((Join-Path $game 'RTV.exe')) -eq 'untouched fixture binary') 'Game binary was modified'
     Check ([IO.File]::ReadAllText((Join-Path $game 'RTV.pck')) -eq 'untouched fixture archive') 'Game archive was modified'
-    Check ((Get-FileHash -LiteralPath (Join-Path $game 'modloader.gd') -Algorithm SHA256).Hash -eq '60FCF7FEEC0A47C6472E3B7A190B46987B374618AE3D149C081B222542BC6135') 'Uninstall changed Metro'
+    Check ((Get-FileHash -LiteralPath (Join-Path $game 'modloader.gd') -Algorithm SHA256).Hash -eq (Get-FileHash -LiteralPath (Join-Path $loader 'modloader.gd') -Algorithm SHA256).Hash) 'Uninstall changed Metro'
     Check ((Get-FileHash -LiteralPath (Join-Path $game 'override.cfg') -Algorithm SHA256).Hash -eq '9750A66FCF0CB1D9BF84284271F52E064F455CDD5A1CDC4981A007E4011A684B') 'Uninstall changed Metro override'
+    if ($PreviousLoaderDirectory) {
+        $previousLoader = Join-Path (Resolve-Path -LiteralPath $PreviousLoaderDirectory).ProviderPath 'modloader.gd'
+        $knownHash = '60FCF7FEEC0A47C6472E3B7A190B46987B374618AE3D149C081B222542BC6135'
+        Check ((Get-FileHash -LiteralPath $previousLoader -Algorithm SHA256).Hash -eq $knownHash) 'Previous official Metro fixture hash differs'
+        $installedLoader = Join-Path $game 'modloader.gd' # The game here is a disposable synthetic directory.
+        [IO.File]::WriteAllText($installedLoader, 'const MODLOADER_VERSION := "3.2.1" # unverified script')
+        Fails { & $runner @fixtureArgs -DryRun } 'neither the verified 3.2.1 nor 3.4.2'
+        Copy-Item -LiteralPath $previousLoader -Destination $installedLoader -Force
+        & $runner @fixtureArgs -DryRun | Out-Null
+        & $runner @fixtureArgs | Out-Null
+        Check ((Get-FileHash -LiteralPath $installedLoader -Algorithm SHA256).Hash -eq $knownHash) 'Installing radar over Metro 3.2.1 changed the loader'
+        Check ((Get-FileHash -LiteralPath $radar -Algorithm SHA256).Hash -eq $archiveHash) 'Radar install on Metro 3.2.1 failed'
+        & $runner @fixtureArgs -Uninstall | Out-Null
+        Check ((Get-FileHash -LiteralPath $installedLoader -Algorithm SHA256).Hash -eq $knownHash) 'Uninstall changed retained Metro 3.2.1'
+    }
     Write-Host 'WINDOWS BUNDLE OK: valid other-build warning/install, malformed/missing manifest refusal, dry run, hashes, install, uninstall, Metro/save/binary preservation.'
 } finally {
     $env:LOCALAPPDATA = $oldLocal

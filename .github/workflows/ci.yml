@@ -36,7 +36,7 @@ jobs:
       - name: Tests
         run: cargo test --locked
 
-      - name: Check Build 2 catalog consistency
+      - name: Check current Patch 0.2.1.0 catalog consistency
         run: python3 -m unittest discover -s tests/catalog -p 'test_*.py'
 
       - name: Check synthetic Steam build gate fixtures (offline only)
@@ -107,7 +107,7 @@ jobs:
           python3 tools/package_radar_range.py
           unzip -t dist/probes/RtVRadarRangeCandidate.vmz
           unzip -p dist/probes/RtVRadarRangeCandidate.vmz mod.txt | grep -F 'id="rtv_toolkit_radar_range_candidate"'
-          unzip -p dist/probes/RtVRadarRangeCandidate.vmz mod.txt | grep -F 'version="0.1.18-experimental.1"'
+          unzip -p dist/probes/RtVRadarRangeCandidate.vmz mod.txt | grep -F 'version="1.1.0"'
           unzip -p dist/probes/RtVRadarRangeCandidate.vmz RtVRadarLiteOverlay.gd | grep -F 'const RANGES_METRES := [50.0, 100.0, 200.0, 400.0]'
           ! unzip -p dist/probes/RtVRadarRangeCandidate.vmz RtVRadarShotBridge.gd | grep -F '.hook('
       - name: Share unreleased range preview for controlled owner testing
@@ -204,48 +204,48 @@ jobs:
         with:
           name: UNRELEASED-rtv-toolkit-windows-x64
           path: dist/windows
-      - name: Obtain and verify official Metro files for disposable fixtures
+      - name: Obtain and hash-check official Metro 3.4.2 for disposable fixtures
         shell: powershell
         run: |
-          New-Item -ItemType Directory -Force -Path dist/metro | Out-Null
-          Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/ametrocavich/vostok-mod-loader/releases/download/v3.2.1/modloader.gd' -OutFile dist/metro/modloader.gd
-          Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/ametrocavich/vostok-mod-loader/releases/download/v3.2.1/override.cfg' -OutFile dist/metro/override.cfg
-          Invoke-WebRequest -UseBasicParsing -Uri 'https://raw.githubusercontent.com/ametrocavich/vostok-mod-loader/v3.2.1/LICENSE' -OutFile dist/metro/LICENSE
-          if ((Get-FileHash dist/metro/modloader.gd -Algorithm SHA256).Hash -ne '60FCF7FEEC0A47C6472E3B7A190B46987B374618AE3D149C081B222542BC6135') { throw 'Metro script hash mismatch' }
-          if ((Get-FileHash dist/metro/override.cfg -Algorithm SHA256).Hash -ne '9750A66FCF0CB1D9BF84284271F52E064F455CDD5A1CDC4981A007E4011A684B') { throw 'Metro override hash mismatch' }
-          if ((Get-FileHash dist/metro/LICENSE -Algorithm SHA256).Hash -ne 'A35D18B4F7F13235A40003AD97705E54BD37E5625DFE63CC6ECFFB3A3822B02F') { throw 'Metro license hash mismatch' }
-      - name: Obtain immutable published v0.1.12 bytes for upgrade-refusal fixture
+          New-Item -ItemType Directory -Force -Path dist/metro, dist/metro-previous | Out-Null
+          $assets = @(
+            @{ Name = 'modloader.gd'; Url = 'https://github.com/ametrocavich/vostok-mod-loader/releases/download/v3.4.2/modloader.gd'; Hash = '30C39E3846957F43925E49EF2449C2CA8F6940C77446AF169CFAFC858975BCC8' },
+            @{ Name = 'override.cfg'; Url = 'https://github.com/ametrocavich/vostok-mod-loader/releases/download/v3.4.2/override.cfg'; Hash = '9750A66FCF0CB1D9BF84284271F52E064F455CDD5A1CDC4981A007E4011A684B' },
+            @{ Name = 'LICENSE'; Url = 'https://raw.githubusercontent.com/ametrocavich/vostok-mod-loader/v3.4.2/LICENSE'; Hash = 'A35D18B4F7F13235A40003AD97705E54BD37E5625DFE63CC6ECFFB3A3822B02F' }
+          )
+          foreach ($asset in $assets) {
+            $path = Join-Path dist/metro $asset.Name
+            Invoke-WebRequest -UseBasicParsing -Uri $asset.Url -OutFile $path
+            if ((Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -ne $asset.Hash) { throw "Metro 3.4.2 $($asset.Name) changed" }
+          }
+          Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/ametrocavich/vostok-mod-loader/releases/download/v3.2.1/modloader.gd' -OutFile dist/metro-previous/modloader.gd
+          if ((Get-FileHash dist/metro-previous/modloader.gd -Algorithm SHA256).Hash -ne '60FCF7FEEC0A47C6472E3B7A190B46987B374618AE3D149C081B222542BC6135') { throw 'Prior Metro script changed' }
+      - name: Verify public v0.1.16 bundle for real upgrade-path fixture
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force -Path dist/previous | Out-Null
-          $assets = @(
-            @{ Name = 'setup-sobolyatnik.ps1'; Hash = 'E4BED9C344E0FBE89492F4C833EAB0C3245CBBE6519109E0AED212F1A27F6775' },
-            @{ Name = 'install-sobolyatnik.ps1'; Hash = 'CF66879C05C3A8404458E24B1E75F6943895C604A497398551DB8535BA01C39D' },
-            @{ Name = 'uninstall-sobolyatnik.ps1'; Hash = '9A0620B45A1C62395C2CF3DC897EFCD30F9600A517E8922A648E1257CADCB877' },
-            @{ Name = 'rtv-toolkit.exe'; Hash = '0A82B65014522D63A804FDCF577173B953E046E49D200681D1DDF1B33CBA8BD7' },
-            @{ Name = 'RtVRadarLoot.vmz'; Hash = '6D2D06E55831F174483595D44FDE6BA5C3A50F7FEC183D2C66A5953ECB98EFDD' }
-          )
-          foreach ($asset in $assets) {
-            $path = Join-Path dist/previous $asset.Name
-            Invoke-WebRequest -UseBasicParsing -Uri ('https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.12-experimental/' + $asset.Name) -OutFile $path
-            if ((Get-FileHash $path -Algorithm SHA256).Hash -ne $asset.Hash) { throw "Published v0.1.12 asset changed: $($asset.Name)" }
-          }
-      - name: Build and test complete, offline hotfix owner kit
+          $name = 'Sobolyatnik-K-0.1.16-experimental.1-reviewed25710663-Windows.zip'
+          $zip = Join-Path dist/previous $name
+          Invoke-WebRequest -UseBasicParsing -Uri ('https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.16/' + $name) -OutFile $zip
+          if ((Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash -ne '7E06753B8873E8BAA8173AC6D5E90D5780E1ECE5947C9FDFC661DCA8279E9BC2') { throw 'Public v0.1.16 ZIP changed' }
+          Expand-Archive -LiteralPath $zip -DestinationPath dist/previous/extracted
+      - name: Build and test complete, offline v1.1 bundle
         shell: powershell
         run: |
           $version = & python -c "import tomllib;print(tomllib.load(open('Cargo.toml','rb'))['package']['version'])"
-          if ($LASTEXITCODE -ne 0 -or $version -ne '0.1.18-experimental.1') { throw 'Candidate version is not in sync with this artifact label' }
+          if ($LASTEXITCODE -ne 0 -or $version -ne '1.1.0') { throw 'Candidate version is not in sync with this artifact label' }
           $helpText = & ./dist/windows/rtv-toolkit.exe --help | Out-String
           if ($LASTEXITCODE -ne 0 -or $helpText -notmatch ('rtv-toolkit ' + [regex]::Escape($version))) { throw 'Windows EXE version mismatch' }
           python tools/build_hotfix_test_kit.py --toolkit dist/windows/rtv-toolkit.exe --metro dist/metro --output dist/hotfix-test-kit
           if ($LASTEXITCODE -ne 0) { throw 'Could not build test kit' }
           $hash = (Get-FileHash dist/hotfix-test-kit/RtVRadarLoot.vmz -Algorithm SHA256).Hash
-          ./tests/installer/hotfix-preview-smoke.ps1 -KitPath ./dist/hotfix-test-kit -LoaderSourceDirectory ./dist/metro -TestIntegration
-          ./tests/installer/bundle-smoke.ps1 -ArchivePath ./dist/hotfix-test-kit/RtVRadarLoot.vmz -LoaderSourceDirectory ./dist/metro -FakeToolkitPath ./dist/hotfix-test-kit/rtv-toolkit.exe -RenderedInstaller ./dist/hotfix-test-kit/setup-sobolyatnik.ps1 -RadarInstallerPath ./dist/hotfix-test-kit/install-sobolyatnik.ps1 -UninstallerPath ./dist/hotfix-test-kit/uninstall-sobolyatnik.ps1 -PreviousBundleInstallerPath ./dist/previous/setup-sobolyatnik.ps1 -PreviousBundleToolkitPath ./dist/previous/rtv-toolkit.exe -PreviousBundleUninstallerPath ./dist/previous/uninstall-sobolyatnik.ps1 -PreviousBundleRadarInstallerPath ./dist/previous/install-sobolyatnik.ps1 -PreviousBundleArchivePath ./dist/previous/RtVRadarLoot.vmz -PreviousBundleVersion 0.1.12-experimental -PreviousBundleGameBuild 25632875 -ExpectedGameBuild 25710663 -ExpectedToolkitVersion $version -ExpectedBundleVersion $version -ExpectedRadarHash $hash -CheckToolkitHelp
+          ./tests/installer/hotfix-preview-smoke.ps1 -KitPath ./dist/hotfix-test-kit -LoaderSourceDirectory ./dist/metro -PreviousLoaderDirectory ./dist/metro-previous -TestIntegration
+          ./tests/installer/bundle-smoke.ps1 -ArchivePath ./dist/hotfix-test-kit/RtVRadarLoot.vmz -LoaderSourceDirectory ./dist/metro -FakeToolkitPath ./dist/hotfix-test-kit/rtv-toolkit.exe -RenderedInstaller ./dist/hotfix-test-kit/setup-sobolyatnik.ps1 -RadarInstallerPath ./dist/hotfix-test-kit/install-sobolyatnik.ps1 -UninstallerPath ./dist/hotfix-test-kit/uninstall-sobolyatnik.ps1 -ExpectedGameBuild 25837777 -ExpectedToolkitVersion $version -ExpectedBundleVersion $version -ExpectedRadarHash $hash -CheckToolkitHelp
+          ./tests/installer/v11-migration-smoke.ps1 -PreviousKitPath ./dist/previous/extracted -NewKitPath ./dist/hotfix-test-kit
       - name: Share validated kit (UNRELEASED; not compatibility clearance)
         uses: actions/upload-artifact@v4
         with:
-          name: UNRELEASED-0.1.18-experimental.1-build25710663-Windows-bundle
+          name: UNRELEASED-Sobolyatnik-K-v1.1-build25837777-Windows-bundle
           path: dist/hotfix-test-kit/*
           if-no-files-found: error
           retention-days: 30

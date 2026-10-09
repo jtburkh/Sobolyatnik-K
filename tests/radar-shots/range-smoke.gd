@@ -102,10 +102,14 @@ func _run() -> void:
 	down.keycode = KEY_F9
 	down.pressed = true
 	Input.parse_input_event(down)
-	await process_frame
-	await process_frame
+	# Headless Godot can deliver the queued input after the first process frame.
+	# Wait for the actual observable state, not a fixed number of scheduler ticks.
+	for _frame in range(30):
+		await process_frame
+		if is_equal_approx(overlay.call("get_range_metres"), 50.0) and persistent_hint.text == "F9 TOGGLE DISTANCE  50m":
+			break
 	if not is_equal_approx(overlay.call("get_range_metres"), 50.0) or persistent_hint.text != "F9 TOGGLE DISTANCE  50m":
-		_fail("Real queued F9 input did not cycle or visibly confirm range")
+		_fail("Real queued F9 input did not cycle or visibly confirm range (range=%sm, hint=%s)" % [str(overlay.call("get_range_metres")), persistent_hint.text])
 		return
 	var up := InputEventKey.new()
 	up.keycode = KEY_F9
