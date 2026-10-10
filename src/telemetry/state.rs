@@ -80,6 +80,8 @@ pub struct ShotEvent {
 pub struct TelemetryState {
     pub current_map: Option<TrackedMap>,
     pub player: Option<TrackedPlayer>,
+    pub summon_actions: Vec<String>,
+    pub last_summon_snapshot: Option<Instant>,
     pub ai_entities: HashMap<u64, TrackedAi>,
     pub loot_containers: HashMap<u64, TrackedLoot>,
     pub shot_events: Vec<ShotEvent>,
@@ -96,6 +98,8 @@ impl TelemetryState {
         self.last_socket_error = None;
         match message {
             TelemetryMessage::Snapshot(snapshot) => {
+                self.summon_actions = snapshot.summon_actions;
+                self.last_summon_snapshot = Some(received_at);
                 self.update_map(snapshot.map);
                 self.update_player(snapshot.player, received_at);
                 for entity in snapshot.ai {
@@ -131,6 +135,17 @@ impl TelemetryState {
             }
             Some(_) => ConnectionStatus::Stale,
         }
+    }
+
+    pub fn can_summon(&self, action: &str, now: Instant) -> bool {
+        self.connection_status(now) == ConnectionStatus::Live
+            && self
+                .last_summon_snapshot
+                .is_some_and(|last| now.saturating_duration_since(last) <= CONNECTION_STALE_AFTER)
+            && self
+                .summon_actions
+                .iter()
+                .any(|available| available == action)
     }
 
     pub fn note_malformed_packet(&mut self) {
@@ -290,6 +305,7 @@ mod tests {
         TelemetryMessage::Snapshot(Snapshot {
             version: 1,
             timestamp_ms: 10,
+            summon_actions: vec![],
             map: MapSnapshot {
                 id: "res://Scenes/Village.tscn".to_owned(),
                 name: "Village".to_owned(),
@@ -317,6 +333,25 @@ mod tests {
             faction: String::new(),
             friendly: false,
         }
+    }
+
+    #[test]
+    fn summon_capabilities_require_a_fresh_compatible_snapshot() {
+        let now = Instant::now();
+        let mut state = TelemetryState::default();
+        state.apply(snapshot(vec![]), now);
+        assert!(!state.can_summon("spawn_airdrop", now)); // v1.1 telemetry has no receiver
+        let TelemetryMessage::Snapshot(mut candidate) = snapshot(vec![]) else {
+            unreachable!();
+        };
+        candidate.summon_actions = vec!["spawn_airdrop".to_owned(), "spawn_bogeyman".to_owned()];
+        state.apply(TelemetryMessage::Snapshot(candidate), now);
+        assert!(state.can_summon("spawn_airdrop", now));
+        assert!(state.can_summon("spawn_bogeyman", now));
+        assert!(!state.can_summon("spawn_punisher", now));
+        state.apply(snapshot(vec![]), now + Duration::from_millis(100));
+        assert!(!state.can_summon("spawn_airdrop", now + Duration::from_millis(100)));
+        assert!(!state.can_summon("spawn_bogeyman", now + Duration::from_secs(3)));
     }
 
     #[test]

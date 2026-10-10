@@ -41,7 +41,8 @@ def check(base: str) -> str:
     matches = [package["version"] for package in packages if package["name"] == "rtv-toolkit"]
     if matches != [current]:
         raise ValueError(f"Cargo.lock package version {matches!r} != Cargo.toml {current!r}")
-    radar = (ROOT / "godot-mod/rtv-radar-range/mod.txt").read_text()
+    manifest = "godot-mod/rtv-radar-summons/mod.txt" if rank(current) >= rank("1.2.0") else "godot-mod/rtv-radar-range/mod.txt"
+    radar = (ROOT / manifest).read_text()
     if not re.search(r'^version="' + re.escape(current) + r'"$', radar, re.MULTILINE):
         raise ValueError("candidate radar manifest and Toolkit package versions differ")
     git("cat-file", "-e", f"{base}^{{commit}}")  # Never silently waive the gate on a missing base.

@@ -36,7 +36,7 @@ class HotfixKitTests(unittest.TestCase):
             version = results["version"]
             setup = (kit / "setup-sobolyatnik.ps1").read_text()
             radar = (kit / "install-sobolyatnik.ps1").read_text()
-            self.assertEqual(version, '1.1.0')
+            self.assertEqual(version, '1.2.0')
             self.assertIn(f"$version = '{version}'", setup)
             self.assertIn("$newRelease = ''", setup)
             self.assertIn("'Sobolyatnik-K'", setup)
@@ -61,7 +61,9 @@ class HotfixKitTests(unittest.TestCase):
             self.assertNotIn("@UNINSTALLER_SHA256@", setup)
             with ZipFile(kit / "RtVRadarLoot.vmz") as vmz:
                 self.assertIn(f'version="{version}"', vmz.read("mod.txt").decode())
-                self.assertIn('name="Sobolyatnik-K v1.1"', vmz.read("mod.txt").decode())
+                self.assertIn('name="Sobolyatnik-K v1.2"', vmz.read("mod.txt").decode())
+                self.assertIn("RtVRadarSummonBridge.gd", vmz.namelist())
+                self.assertIn('"summon_actions": ["spawn_airdrop", "spawn_punisher", "spawn_bogeyman"]', vmz.read("RtVRadarLite.gd").decode())
                 base = vmz.read("RtVRadarLite.gd").decode()
                 self.assertIn("_overlay_enabled = OVERLAY_DEFAULT", base)
                 self.assertIn("_controls_enabled = CONTROLS_DEFAULT and _overlay_enabled", base)
@@ -73,12 +75,11 @@ class HotfixKitTests(unittest.TestCase):
                 self.assertIn("F9 TOGGLE DISTANCE", bridge)
             self.assertEqual(old_installer, (builder.TOOLS / "install-sobolyatnik-v0.1.12.ps1").read_bytes())
             self.assertTrue((kit / "metro" / "LICENSE").is_file())
-            self.assertIn("Sobolyatnik-K v1.1 Windows bundle", (kit / "README.txt").read_text())
-            self.assertIn("GitHub release v1.1.0", (kit / "README.txt").read_text())
-            self.assertNotIn("not published", (kit / "README.txt").read_text())
+            self.assertIn("Sobolyatnik-K v1.2 Windows bundle", (kit / "README.txt").read_text())
+            self.assertIn("LOCAL CANDIDATE ONLY: not published", (kit / "README.txt").read_text())
             self.assertIn("Metro Mod Loader 3.4.2", (kit / "README.txt").read_text())
             self.assertNotIn("experimental", (kit / "README.txt").read_text().lower())
-            self.assertIn("v1.1 Windows bundle", (kit / "run-sobolyatnik.ps1").read_text())
+            self.assertIn("v1.2 Windows bundle", (kit / "run-sobolyatnik.ps1").read_text())
             artifact = pathlib.Path(temp) / "portable.zip"
             self.assertEqual(len(zipper.make_zip(kit, artifact)), 64)
             with ZipFile(artifact) as release:

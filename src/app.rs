@@ -75,7 +75,8 @@ enum Mode {
     },
     ConfirmQuit,
     ConfirmAirdrop,
-    ConfirmBoss,
+    ConfirmPunisher,
+    ConfirmBogeyman,
     SelectVital {
         selected: usize,
     },
@@ -108,6 +109,7 @@ pub struct App {
     telemetry_receiver: Option<TelemetryReceiver>,
     telemetry_state: TelemetryState,
     telemetry_bind: String,
+    pending_summon: Option<(String, Instant)>,
     radar_mode: RadarMode,
     radar_range_index: usize,
     advanced_overlays: bool,
@@ -147,6 +149,7 @@ impl App {
             telemetry_receiver: None,
             telemetry_state: TelemetryState::default(),
             telemetry_bind: DEFAULT_BIND_ADDRESS.to_owned(),
+            pending_summon: None,
             radar_mode: RadarMode::Hybrid,
             radar_range_index: 1, // Match the HUD's 100m default; range changes are display-only.
             advanced_overlays: false,
@@ -193,9 +196,44 @@ impl App {
         self.telemetry_state.prune(Instant::now());
     }
 
+    fn poll_summon_result(&mut self) {
+        let Some((id, started)) = self.pending_summon.as_ref() else {
+            return;
+        };
+        let Some(directory) = self.document.path().parent() else {
+            return;
+        };
+        let result_path = directory.join("rtv-toolkit-command-result.cfg");
+        if let Ok(result) = std::fs::read_to_string(result_path)
+            && result.len() <= 4096
+        {
+            let field = |key: &str| -> Option<&str> {
+                result.lines().find_map(|line| {
+                    line.trim()
+                        .strip_prefix(key)?
+                        .strip_prefix("=\"")?
+                        .strip_suffix('"')
+                })
+            };
+            if field("id") == Some(id.as_str())
+                && let (Some(status @ ("accepted" | "rejected")), Some(message)) =
+                    (field("status"), field("message"))
+            {
+                self.status = format!("Summon {status}: {message}");
+                self.pending_summon = None;
+                return;
+            }
+        }
+        if started.elapsed() > Duration::from_secs(35) {
+            self.status = "Summon result timed out; check the game before trying again.".into();
+            self.pending_summon = None;
+        }
+    }
+
     pub fn run(&mut self, terminal: &mut Terminal<CrosstermBackend<io::Stdout>>) -> Result<()> {
         loop {
             self.poll_telemetry();
+            self.poll_summon_result();
             terminal.draw(|frame| self.draw(frame))?;
             if !event::poll(Duration::from_millis(50))? {
                 continue;
@@ -502,30 +540,36 @@ impl App {
                     }
                 }
                 KeyCode::Char('A') | KeyCode::Char('p') if self.panel == Panel::Radar => {
-                    if self.telemetry_state.connection_status(Instant::now())
-                        == ConnectionStatus::Live
+                    if self
+                        .telemetry_state
+                        .can_summon("spawn_airdrop", Instant::now())
                     {
                         self.mode = Mode::ConfirmAirdrop;
                     } else {
                         self.status =
-                            "Airdrop unavailable: live game telemetry is not connected.".into();
+                            "Airdrop unavailable: compatible live summon bridge required.".into();
                     }
                 }
                 KeyCode::Char('b') if self.panel == Panel::Radar => {
-                    if self.telemetry_state.connection_status(Instant::now())
-                        != ConnectionStatus::Live
-                    {
-                        self.status =
-                            "Boss unavailable: live game telemetry is not connected.".into();
-                    } else if self
+                    if self
                         .telemetry_state
-                        .ai_entities
-                        .values()
-                        .any(|entity| entity.boss && entity.alive)
+                        .can_summon("spawn_punisher", Instant::now())
                     {
-                        self.status = "Boss unavailable: a live boss is already tracked.".into();
+                        self.mode = Mode::ConfirmPunisher;
                     } else {
-                        self.mode = Mode::ConfirmBoss;
+                        self.status =
+                            "Punisher unavailable: compatible live summon bridge required.".into();
+                    }
+                }
+                KeyCode::Char('B') if self.panel == Panel::Radar => {
+                    if self
+                        .telemetry_state
+                        .can_summon("spawn_bogeyman", Instant::now())
+                    {
+                        self.mode = Mode::ConfirmBogeyman;
+                    } else {
+                        self.status =
+                            "Bogeyman unavailable: compatible live summon bridge required.".into();
                     }
                 }
                 KeyCode::Char('o') if self.panel == Panel::Radar => {
@@ -705,8 +749,12 @@ impl App {
                 KeyCode::Char('y') | KeyCode::Enter => self.queue_airdrop(),
                 _ => self.mode = Mode::Normal,
             },
-            Mode::ConfirmBoss => match key.code {
-                KeyCode::Char('y') | KeyCode::Enter => self.queue_boss(),
+            Mode::ConfirmPunisher => match key.code {
+                KeyCode::Char('y') | KeyCode::Enter => self.queue_boss("Punisher"),
+                _ => self.mode = Mode::Normal,
+            },
+            Mode::ConfirmBogeyman => match key.code {
+                KeyCode::Char('y') | KeyCode::Enter => self.queue_boss("Bogeyman"),
                 _ => self.mode = Mode::Normal,
             },
             Mode::Help => self.mode = Mode::Normal,
@@ -731,11 +779,18 @@ impl App {
 
     fn queue_airdrop(&mut self) {
         self.mode = Mode::Normal;
+        if !self
+            .telemetry_state
+            .can_summon("spawn_airdrop", Instant::now())
+        {
+            self.status = "Airdrop canceled: compatible game bridge is no longer live.".into();
+            return;
+        }
         match crate::request_airdrop(self.document.path()) {
             Ok(command_id) => {
-                self.status = format!(
-                    "Native airdrop queued ({command_id}); watch/listen for the CASA aircraft."
-                );
+                self.status =
+                    format!("Airdrop request queued ({command_id}); awaiting game result.");
+                self.pending_summon = Some((command_id, Instant::now()));
             }
             Err(error) => {
                 self.status = format!("Airdrop request failed: {error:#}");
@@ -743,13 +798,22 @@ impl App {
         }
     }
 
-    fn queue_boss(&mut self) {
+    fn queue_boss(&mut self, name: &str) {
         self.mode = Mode::Normal;
-        match crate::request_boss(self.document.path()) {
+        let action = if name == "Punisher" {
+            "spawn_punisher"
+        } else {
+            "spawn_bogeyman"
+        };
+        if !self.telemetry_state.can_summon(action, Instant::now()) {
+            self.status = format!("{name} canceled: compatible game bridge is no longer live.");
+            return;
+        }
+        match crate::request_runtime_command(self.document.path(), action) {
             Ok(command_id) => {
-                self.status = format!(
-                    "Native boss queued ({command_id}); watch Radar for the magenta BOSS contact."
-                );
+                self.status =
+                    format!("{name} request queued ({command_id}); awaiting game result.");
+                self.pending_summon = Some((command_id, Instant::now()));
             }
             Err(error) => {
                 self.status = format!("Boss request failed: {error:#}");
@@ -1183,7 +1247,7 @@ impl App {
                     ("v", "Mode"),
                     ("o", "Overlays"),
                     ("p", "Airdrop"),
-                    ("b", "Boss"),
+                    ("b/B", "Boss: Punisher/Bogeyman"),
                     ("+/−", "Range"),
                     ("?", "Help"),
                     ("q", "Quit"),
@@ -1255,9 +1319,14 @@ impl App {
                 "Trigger one native CASA airdrop event?",
                 "y/Enter=yes, any other key=no",
             ),
-            Mode::ConfirmBoss => self.draw_confirm(
+            Mode::ConfirmPunisher => self.draw_confirm(
                 frame,
-                "Spawn the native boss at a distant game spawn point?",
+                "Spawn the native Punisher at a distant game point?",
+                "y/Enter=yes, any other key=no",
+            ),
+            Mode::ConfirmBogeyman => self.draw_confirm(
+                frame,
+                "Spawn the native Bogeyman at a distant lurk point?",
                 "y/Enter=yes, any other key=no",
             ),
             Mode::SelectVital { selected } => self.draw_vital_dialog(frame, *selected),
@@ -3044,7 +3113,7 @@ impl App {
             "v              Radar mode; validate items on other tabs",
             "o              Toggle trails, vision, elevation, and loot",
             "p              Confirm one native CASA airdrop (Radar, live only)",
-            "b              Confirm one native boss spawn (Radar, live only)",
+            "b/B            Confirm Punisher/Bogeyman (Radar, compatible live bridge only)",
             "+ / -          Increase / decrease radar range",
             "s              Save after validation (creates .rtvbak backup)",
             "r              Reload; on Backups tab refresh the list",
@@ -3655,6 +3724,44 @@ catalog = Array[ExtResource("2")]([])
         .unwrap()
     }
 
+    #[test]
+    fn summon_result_requires_matching_id_and_reports_rejection() {
+        let directory = std::env::temp_dir().join(format!(
+            "rtv-summon-result-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir(&directory).unwrap();
+        let save = directory.join("Character.tres");
+        fs::write(&save, TEST_CHARACTER).unwrap();
+        let mut app = App::new(
+            CharacterDocument::load(&save).unwrap(),
+            Catalog::load().unwrap(),
+        )
+        .unwrap();
+        app.pending_summon = Some(("expected".into(), Instant::now()));
+        let result = directory.join("rtv-toolkit-command-result.cfg");
+        fs::write(
+            &result,
+            "[result]\nid=\"other\"\nstatus=\"accepted\"\nmessage=\"old\"\n",
+        )
+        .unwrap();
+        app.poll_summon_result();
+        assert!(app.pending_summon.is_some());
+        fs::write(
+            &result,
+            "[result]\nid=\"expected\"\nstatus=\"rejected\"\nmessage=\"NO SAFE BOGEYMAN WAYPOINT\"\n",
+        )
+        .unwrap();
+        app.poll_summon_result();
+        assert!(app.pending_summon.is_none());
+        assert_eq!(app.status, "Summon rejected: NO SAFE BOGEYMAN WAYPOINT");
+        fs::remove_dir_all(directory).unwrap();
+    }
+
     fn filled_count(bar: &str) -> usize {
         bar.chars().filter(|c| *c == '▮').count()
     }
@@ -3714,6 +3821,11 @@ catalog = Array[ExtResource("2")]([])
             TelemetryMessage::Snapshot(Snapshot {
                 version: 1,
                 timestamp_ms: 1,
+                summon_actions: vec![
+                    "spawn_airdrop".into(),
+                    "spawn_punisher".into(),
+                    "spawn_bogeyman".into(),
+                ],
                 map: MapSnapshot {
                     id: "res://Scenes/Village.tscn".to_owned(),
                     name: "Village".to_owned(),
@@ -3802,7 +3914,7 @@ catalog = Array[ExtResource("2")]([])
         assert!(rendered.contains("Boss"));
         app.handle_key(KeyEvent::new(KeyCode::Char('b'), KeyModifiers::NONE))
             .unwrap();
-        assert!(matches!(app.mode, Mode::ConfirmBoss));
+        assert!(matches!(app.mode, Mode::ConfirmPunisher));
         app.handle_key(KeyEvent::new(KeyCode::Char('n'), KeyModifiers::NONE))
             .unwrap();
         assert!(matches!(app.mode, Mode::Normal));
@@ -3852,6 +3964,11 @@ catalog = Array[ExtResource("2")]([])
             TelemetryMessage::Snapshot(Snapshot {
                 version: 1,
                 timestamp_ms: 1,
+                summon_actions: vec![
+                    "spawn_airdrop".into(),
+                    "spawn_punisher".into(),
+                    "spawn_bogeyman".into(),
+                ],
                 map: MapSnapshot {
                     id: map_id.clone(),
                     name: "Outpost".to_owned(),
@@ -3944,6 +4061,11 @@ catalog = Array[ExtResource("2")]([])
             TelemetryMessage::Snapshot(Snapshot {
                 version: 1,
                 timestamp_ms: 1,
+                summon_actions: vec![
+                    "spawn_airdrop".into(),
+                    "spawn_punisher".into(),
+                    "spawn_bogeyman".into(),
+                ],
                 map: MapSnapshot {
                     id: "res://Scenes/Outpost.tscn".to_owned(),
                     name: "Outpost".to_owned(),
@@ -4005,8 +4127,14 @@ catalog = Array[ExtResource("2")]([])
         assert!(rendered.contains("Airdrop"));
         app.handle_key(KeyEvent::new(KeyCode::Char('b'), KeyModifiers::NONE))
             .unwrap();
-        assert!(matches!(app.mode, Mode::Normal));
-        assert!(app.status.contains("already tracked"));
+        assert!(matches!(app.mode, Mode::ConfirmPunisher));
+        app.handle_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE))
+            .unwrap();
+        app.handle_key(KeyEvent::new(KeyCode::Char('B'), KeyModifiers::SHIFT))
+            .unwrap();
+        assert!(matches!(app.mode, Mode::ConfirmBogeyman));
+        app.handle_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE))
+            .unwrap();
         app.handle_key(KeyEvent::new(KeyCode::Char('p'), KeyModifiers::NONE))
             .unwrap();
         assert!(matches!(app.mode, Mode::ConfirmAirdrop));

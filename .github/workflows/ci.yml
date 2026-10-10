@@ -110,6 +110,24 @@ jobs:
           unzip -p dist/probes/RtVRadarRangeCandidate.vmz mod.txt | grep -F 'version="1.1.0"'
           unzip -p dist/probes/RtVRadarRangeCandidate.vmz RtVRadarLiteOverlay.gd | grep -F 'const RANGES_METRES := [50.0, 100.0, 200.0, 400.0]'
           ! unzip -p dist/probes/RtVRadarRangeCandidate.vmz RtVRadarShotBridge.gd | grep -F '.hook('
+      - name: Package next-version summons candidate (not a release asset)
+        run: |
+          python3 tools/package_radar_summons.py
+          unzip -t dist/probes/RtVRadarSummonsCandidate.vmz
+          unzip -p dist/probes/RtVRadarSummonsCandidate.vmz mod.txt | grep -F 'version="1.2.0"'
+          unzip -p dist/probes/RtVRadarSummonsCandidate.vmz RtVRadarLite.gd | grep -F '"summon_actions": ["spawn_airdrop", "spawn_punisher", "spawn_bogeyman"]'
+          ! unzip -p dist/probes/RtVRadarSummonsCandidate.vmz RtVRadarSummonBridge.gd | grep -F '.hook('
+      - name: Exercise summons and preserved shot/F9 behaviors in a disposable Godot project
+        run: |
+          mkdir -p dist/godot
+          curl --fail --location --retry 2 --max-time 120 --silent --show-error \
+            'https://github.com/godotengine/godot-builds/releases/download/4.6.3-stable/Godot_v4.6.3-stable_linux.x86_64.zip' \
+            --output dist/godot/engine.zip
+          echo 'd0bc2113065e481c9c2c2b2c37daa4e8be3fe9e27f0ab9ab0b6096e9a37907f3  dist/godot/engine.zip' | sha256sum -c -
+          unzip -q dist/godot/engine.zip -d dist/godot
+          chmod +x dist/godot/Godot_v4.6.3-stable_linux.x86_64
+          python3 tools/test_radar_summons.py --engine dist/godot/Godot_v4.6.3-stable_linux.x86_64
+          python3 tools/test_radar_shots.py --engine dist/godot/Godot_v4.6.3-stable_linux.x86_64 --player-bundle dist/probes/RtVRadarSummonsCandidate.vmz
       - name: Share unreleased range preview for controlled owner testing
         uses: actions/upload-artifact@v4
         with:
@@ -229,11 +247,20 @@ jobs:
           Invoke-WebRequest -UseBasicParsing -Uri ('https://github.com/jtburkh/Sobolyatnik-K/releases/download/v0.1.16/' + $name) -OutFile $zip
           if ((Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash -ne '7E06753B8873E8BAA8173AC6D5E90D5780E1ECE5947C9FDFC661DCA8279E9BC2') { throw 'Public v0.1.16 ZIP changed' }
           Expand-Archive -LiteralPath $zip -DestinationPath dist/previous/extracted
-      - name: Build and test complete, offline v1.1 bundle
+      - name: Verify public v1.1 bundle for latest-release upgrade fixture
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path dist/previous-v11 | Out-Null
+          $name = 'Sobolyatnik-K-v1.1-Windows.zip'
+          $zip = Join-Path dist/previous-v11 $name
+          Invoke-WebRequest -UseBasicParsing -Uri ('https://github.com/jtburkh/Sobolyatnik-K/releases/download/v1.1.0/' + $name) -OutFile $zip
+          if ((Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash -ne '171181C85BF107054BF06C856C223E7688D68FD5E161595FBD7BF12E62D635A2') { throw 'Public v1.1 ZIP changed' }
+          Expand-Archive -LiteralPath $zip -DestinationPath dist/previous-v11/extracted
+      - name: Build and test complete, offline v1.2 candidate bundle
         shell: powershell
         run: |
           $version = & python -c "import tomllib;print(tomllib.load(open('Cargo.toml','rb'))['package']['version'])"
-          if ($LASTEXITCODE -ne 0 -or $version -ne '1.1.0') { throw 'Candidate version is not in sync with this artifact label' }
+          if ($LASTEXITCODE -ne 0 -or $version -ne '1.2.0') { throw 'Candidate version is not in sync with this artifact label' }
           $helpText = & ./dist/windows/rtv-toolkit.exe --help | Out-String
           if ($LASTEXITCODE -ne 0 -or $helpText -notmatch ('rtv-toolkit ' + [regex]::Escape($version))) { throw 'Windows EXE version mismatch' }
           python tools/build_hotfix_test_kit.py --toolkit dist/windows/rtv-toolkit.exe --metro dist/metro --output dist/hotfix-test-kit
@@ -241,11 +268,12 @@ jobs:
           $hash = (Get-FileHash dist/hotfix-test-kit/RtVRadarLoot.vmz -Algorithm SHA256).Hash
           ./tests/installer/hotfix-preview-smoke.ps1 -KitPath ./dist/hotfix-test-kit -LoaderSourceDirectory ./dist/metro -PreviousLoaderDirectory ./dist/metro-previous -TestIntegration
           ./tests/installer/bundle-smoke.ps1 -ArchivePath ./dist/hotfix-test-kit/RtVRadarLoot.vmz -LoaderSourceDirectory ./dist/metro -FakeToolkitPath ./dist/hotfix-test-kit/rtv-toolkit.exe -RenderedInstaller ./dist/hotfix-test-kit/setup-sobolyatnik.ps1 -RadarInstallerPath ./dist/hotfix-test-kit/install-sobolyatnik.ps1 -UninstallerPath ./dist/hotfix-test-kit/uninstall-sobolyatnik.ps1 -ExpectedGameBuild 25837777 -ExpectedToolkitVersion $version -ExpectedBundleVersion $version -ExpectedRadarHash $hash -CheckToolkitHelp
-          ./tests/installer/v11-migration-smoke.ps1 -PreviousKitPath ./dist/previous/extracted -NewKitPath ./dist/hotfix-test-kit
+          ./tests/installer/v12-migration-smoke.ps1 -PreviousKitPath ./dist/previous/extracted -NewKitPath ./dist/hotfix-test-kit
+          ./tests/installer/v12-from-v11-migration-smoke.ps1 -PreviousKitPath ./dist/previous-v11/extracted -NewKitPath ./dist/hotfix-test-kit
       - name: Share validated kit (UNRELEASED; not compatibility clearance)
         uses: actions/upload-artifact@v4
         with:
-          name: UNRELEASED-Sobolyatnik-K-v1.1-build25837777-Windows-bundle
+          name: UNRELEASED-Sobolyatnik-K-v1.2-build25837777-Windows-bundle
           path: dist/hotfix-test-kit/*
           if-no-files-found: error
           retention-days: 30

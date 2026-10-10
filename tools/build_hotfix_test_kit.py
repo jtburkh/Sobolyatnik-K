@@ -14,10 +14,10 @@ import struct
 import tomllib
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
-from package_radar_shots import ROOT, enabled_base
+from package_radar_shots import ROOT
 
 BUILD_ID = "25837777"  # Steam content update 0.2.1.0; identity alone does not prove gameplay compatibility.
-SOURCE = ROOT / "godot-mod" / "rtv-radar-range"
+SOURCE = ROOT / "godot-mod" / "rtv-radar-summons"
 TOOLS = ROOT / "tools"
 OLD_VMZ_HASH = "6d2d06e55831f174483595d44fde6ba5c3a50f7fec183d2c66a5953ecb98efdd"
 METRO_HASHES = {
@@ -40,8 +40,8 @@ def replace_once(text: str, old: str, new: str) -> str:
 
 def version() -> str:
     package_version = tomllib.loads((ROOT / "Cargo.toml").read_text())["package"]["version"]
-    if package_version != "1.1.0":
-        raise ValueError("expected the separately versioned 1.1.0 candidate")
+    if package_version != "1.2.0":
+        raise ValueError("expected the separately versioned 1.2.0 candidate")
     manifest = (SOURCE / "mod.txt").read_text()
     if f'version="{package_version}"' not in manifest:
         raise ValueError("Toolkit and candidate radar manifest versions differ")
@@ -59,39 +59,11 @@ def verify_pe(executable: bytes) -> None:
 
 
 def package_radar(path: Path, kit_version: str) -> str:
-    base = enabled_base()
-    # Old diagnostic installations could leave these opt-out flags in the
-    # preserved user config. A player bundle must always expose its radar and
-    # F7/F8/F9 controls; do not rewrite user config or their saves. The other
-    # config preferences (network/loot/contacts) remain unchanged.
-    for flag in ("OVERLAY", "CONTROLS"):
-        base = replace_once(
-            base,
-            f'bool(config.get_value("radar_lite", "{flag.lower()}", {flag}_DEFAULT))',
-            f"{flag}_DEFAULT",
-        )
-    entries = {
-        "RtVRadarLite.gd": base,
-        "RtVRadarLiteOverlay.gd": (SOURCE / "RtVRadarLiteOverlay.gd").read_text(),
-        "RtVRadarShotBridge.gd": (SOURCE / "RtVRadarShotBridge.gd").read_text(),
-        "mod.txt": (
-            '[mod]\n'
-            f'name="Sobolyatnik-K v1.1"\n'
-            'id="rtv_toolkit_radar_loot"\n'
-            f'version="{kit_version}"\n'
-            'priority=0\n\n'
-            '[autoload]\n'
-            'RtVRadarShots="res://RtVRadarShotBridge.gd"\n'
-        ),
-    }
-    if '.hook(' in entries['RtVRadarShotBridge.gd'] or 'res://Scripts/AI.gd' in entries['mod.txt']:
-        raise ValueError("refusing AI script rewrite")
-    with ZipFile(path, "w", compression=ZIP_DEFLATED, compresslevel=9) as archive:
-        for filename, text in sorted(entries.items()):
-            info = ZipInfo(filename, (2020, 1, 1, 0, 0, 0))
-            info.compress_type = ZIP_DEFLATED
-            info.external_attr = 0o644 << 16
-            archive.writestr(info, text.encode("utf-8"), compresslevel=9)
+    from package_radar_summons import package
+
+    if kit_version != version():
+        raise ValueError("candidate radar and Toolkit version differ")
+    package(path)
     return sha256(path.read_bytes())
 
 
@@ -269,20 +241,20 @@ $game = Resolve-Game""",
     if setup.count("'Sobolyatnik-K (Experimental)'") != 2:
         raise ValueError("review source drift: Windows app label changed")
     setup = setup.replace("'Sobolyatnik-K (Experimental)'", "'Sobolyatnik-K'")
-    setup = replace_once(setup, "Install Sobolyatnik-K 0.1.12 Experimental", "Install Sobolyatnik-K v1.1")
+    setup = replace_once(setup, "Install Sobolyatnik-K 0.1.12 Experimental", "Install Sobolyatnik-K v1.2")
     (kit / "setup-sobolyatnik.ps1").write_text(setup, encoding="utf-8", newline="\n")
     setup_hash = sha256(setup.encode("utf-8"))
 
     wrapper = (TOOLS / "run-hotfix-test-install.ps1").read_text()
     wrapper = replace_once(wrapper, "@KIT_VERSION@", kit_version)
-    wrapper = replace_once(wrapper, f"{kit_version} experimental Windows bundle", f"v1.1 Windows bundle")
+    wrapper = replace_once(wrapper, f"{kit_version} experimental Windows bundle", f"v1.2 Windows bundle")
     (kit / "run-sobolyatnik.ps1").write_text(wrapper, encoding="utf-8", newline="\n")
     lines = [
-        f"Sobolyatnik-K v1.1 Windows bundle (package {kit_version}) for Road to Vostok Steam build {BUILD_ID}.",
-        "Includes the in-game Shot Alerts radar, selectable 50/100/200/400m views, and Windows Toolkit.",
+        f"Sobolyatnik-K v1.2 Windows bundle (LOCAL UNRELEASED CANDIDATE, package {kit_version}) for Road to Vostok Steam build {BUILD_ID}.",
+        "Includes the in-game Shot Alerts radar, F9 display ranges, F10/F11 summon menu, and Windows Toolkit Radar p/b/B summon confirmations.",
         "Older radar_lite overlay/controls=false preferences are ignored by this player release; other user config remains untouched.",
         "Close Road to Vostok before installing or editing saves. Back up important saves first.",
-        "Verify the ZIP and adjacent .sha256 from GitHub release v1.1.0 before extracting.",
+        "LOCAL CANDIDATE ONLY: not published, not tested in real gameplay; do not replace a working game installation without owner-approved backup and rollback.",
         "Version numbers are not a guarantee of broad gameplay or crash-free compatibility.",
         "Extract the entire ZIP including the metro folder into one folder on Windows.",
         "From PowerShell in that folder, first run: .\\run-sobolyatnik.ps1 -DryRun",
@@ -290,7 +262,7 @@ $game = Resolve-Game""",
         "If the Steam build differs from the reviewed build, the installer warns but allows installation. Compatibility is unverified.",
         "To uninstall, close the game and Toolkit, then run: .\\run-sobolyatnik.ps1 -Uninstall",
         "Uninstall retains Metro, character saves and rollback copies.",
-        "First release on this game build: gameplay stability is not yet broadly established. Report bugs with redacted logs.",
+        "These new airdrop and boss summons have not been tested in real gameplay. Report bugs with redacted logs.",
         "The included official Metro Mod Loader 3.4.2 is MIT licensed; see metro/LICENSE.",
         "An existing hash-verified Metro 3.2.1 is retained; no loader is overwritten.",
         "",

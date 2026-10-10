@@ -37,13 +37,14 @@ fn main() -> Result<()> {
         return run_telemetry_probe(duration, &bind_address);
     }
     let spawn_airdrop = args.iter().any(|arg| arg == "--spawn-airdrop");
-    let spawn_boss = args.iter().any(|arg| arg == "--spawn-boss");
+    let spawn_boss = args
+        .iter()
+        .any(|arg| arg == "--spawn-boss" || arg == "--spawn-bogeyman");
     let check = args.iter().any(|arg| arg == "--check");
-    if spawn_airdrop && spawn_boss {
-        bail!("request only one runtime action at a time");
-    }
-    if (spawn_airdrop || spawn_boss) && check {
-        bail!("runtime spawn commands cannot be combined with --check");
+    if spawn_airdrop || spawn_boss {
+        bail!(
+            "Standalone summon commands are disabled: use Radar in the Toolkit with a compatible live summon bridge"
+        );
     }
     let telemetry_bind = parse_telemetry_bind_arg(&args)?;
     let requested = parse_save_arg(&args)?;
@@ -53,19 +54,6 @@ fn main() -> Result<()> {
             anyhow::anyhow!("could not find Character.tres; pass --save <path> (see --help)")
         })?,
     };
-
-    if spawn_airdrop {
-        let command_id = request_airdrop(&path)?;
-        println!("Queued native EventSystem.Airdrop request {command_id}.");
-        println!("The v0.5.0+ bridge will consume it when a playable map is active.");
-        return Ok(());
-    }
-    if spawn_boss {
-        let command_id = request_boss(&path)?;
-        println!("Queued native AISpawner.SpawnBoss request {command_id}.");
-        println!("The v0.5.0+ bridge will consume it at a safe game-owned spawn point.");
-        return Ok(());
-    }
 
     let catalog = Catalog::load()?;
     let document = CharacterDocument::load(&path)?;
@@ -190,15 +178,14 @@ pub(crate) fn request_airdrop(save_path: &Path) -> Result<String> {
     request_runtime_command(save_path, "spawn_airdrop")
 }
 
-pub(crate) fn request_boss(save_path: &Path) -> Result<String> {
-    request_runtime_command(save_path, "spawn_boss")
-}
-
 fn request_runtime_command(save_path: &Path, action: &str) -> Result<String> {
     use std::io::Write;
     use std::time::{SystemTime, UNIX_EPOCH};
 
-    if !matches!(action, "spawn_airdrop" | "spawn_boss") {
+    if !matches!(
+        action,
+        "spawn_airdrop" | "spawn_boss" | "spawn_punisher" | "spawn_bogeyman"
+    ) {
         bail!("unsupported runtime command action");
     }
     let directory = save_path
@@ -304,7 +291,7 @@ fn parse_save_arg(args: &[String]) -> Result<Option<PathBuf>> {
     let mut index = 0;
     while index < args.len() {
         match args[index].as_str() {
-            "--check" | "--spawn-airdrop" | "--spawn-boss" => {}
+            "--check" | "--spawn-airdrop" | "--spawn-boss" | "--spawn-bogeyman" => {}
             "--telemetry-bind" => {
                 index += 1;
                 if index >= args.len() {
@@ -364,15 +351,12 @@ fn print_help() {
          USAGE:\n  \
            rtv-toolkit [--save <Character.tres>] [--telemetry-bind <address>]\n  \
            rtv-toolkit --check [--save <Character.tres>]\n  \
-           rtv-toolkit --spawn-airdrop [--save <Character.tres>]\n  \
-           rtv-toolkit --spawn-boss [--save <Character.tres>]\n  \
            rtv-toolkit --telemetry-probe [--duration <seconds>] [--telemetry-bind <address>]\n\n\
          OPTIONS:\n  \
            -s, --save <path>  Character save to open\n  \
                --check        Validate and print a report without starting the UI\n  \
                --telemetry-probe  Print live UDP telemetry and exit\n  \
-               --spawn-airdrop    Queue one native game airdrop event\n  \
-               --spawn-boss       Queue the native boss at a game-owned spawn point\n  \
+               --spawn-airdrop/--spawn-boss/--spawn-bogeyman  Disabled; use Radar with a compatible live summon bridge\n  \
                --duration <s>     Probe duration in seconds (default: 30)\n  \
                --telemetry-bind <address>  UDP listen address (default: {telemetry})\n  \
            -h, --help         Show this help\n\n\
@@ -394,7 +378,7 @@ impl Drop for TerminalGuard {
 
 #[cfg(test)]
 mod command_tests {
-    use super::{request_airdrop, request_boss, request_runtime_command};
+    use super::{request_airdrop, request_runtime_command};
     use std::{fs, path::PathBuf};
 
     #[test]
@@ -413,9 +397,13 @@ mod command_tests {
         assert!(request_airdrop(&save).is_err());
 
         fs::remove_file(&request_path).unwrap();
-        request_boss(&save).unwrap();
+        request_runtime_command(&save, "spawn_punisher").unwrap();
         let request = fs::read_to_string(&request_path).unwrap();
-        assert!(request.contains("action=\"spawn_boss\""));
+        assert!(request.contains("action=\"spawn_punisher\""));
+        fs::remove_file(&request_path).unwrap();
+        request_runtime_command(&save, "spawn_bogeyman").unwrap();
+        let request = fs::read_to_string(&request_path).unwrap();
+        assert!(request.contains("action=\"spawn_bogeyman\""));
         assert!(request_runtime_command(&save, "arbitrary_eval").is_err());
         fs::remove_dir_all(directory).unwrap();
     }

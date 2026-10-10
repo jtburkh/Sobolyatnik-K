@@ -1,8 +1,4 @@
-"""Keep the README's single installer tied to a real, versioned release.
-
-Until v1.1 public bytes exist the README must continue to recommend the
-verified v0.1.16 ZIP. The docs-only promotion after release needs no code bump.
-"""
+"""Keep README on the verified public release through staged publication."""
 
 from pathlib import Path
 import re
@@ -15,7 +11,8 @@ ROOT = Path(__file__).resolve().parents[2]
 class ReleaseMetadataTests(unittest.TestCase):
     def test_v11_release_source_workflow_and_assets_agree(self):
         version = tomllib.loads((ROOT / "Cargo.toml").read_text())["package"]["version"]
-        self.assertEqual(version, "1.1.0")
+        self.assertEqual(version, "1.2.0")
+        self.assertIn('version="1.2.0"', (ROOT / "godot-mod/rtv-radar-summons/mod.txt").read_text())
         workflow = (ROOT / ".github/workflows/sobolyatnik-v1.1-release.yml").read_text()
         builder = (ROOT / "tools/build_hotfix_test_kit.py").read_text()
         manifest = (ROOT / "godot-mod/rtv-radar-range/mod.txt").read_text()
@@ -27,6 +24,21 @@ class ReleaseMetadataTests(unittest.TestCase):
         self.assertIn('version="1.1.0"', manifest)
         self.assertIn('BUILD_ID = "25837777"', builder)
         self.assertIn('30c39e3846957f43925e49ef2449c2ca8f6940c77446af169cfafc858975bcc8', builder)
+        for asset in ("RtVRadarLoot.vmz", "rtv-toolkit.exe"):
+            self.assertIn("dist/release/" + asset + "\n", workflow)
+            self.assertIn("dist/release/" + asset + ".sha256\n", workflow)
+
+    def test_v12_release_source_workflow_and_assets_agree(self):
+        workflow = (ROOT / ".github/workflows/sobolyatnik-v1.2-release.yml").read_text()
+        self.assertRegex(workflow, r"(?m)^\s+- v1\.2\.0$")
+        self.assertIn("name: 'Sobolyatnik-K v1.2'", workflow)
+        self.assertIn("Sobolyatnik-K-v1.2-Windows.zip", workflow)
+        self.assertIn("'rtv-toolkit 1\\.2\\.0'", workflow)
+        self.assertIn("draft: false", workflow)
+        self.assertIn("prerelease: false", workflow)
+        self.assertIn("v12-from-v11-migration-smoke.ps1", workflow)
+        self.assertIn("test_radar_summons.py --engine", workflow)
+        self.assertIn("--player-bundle dist/release/RtVRadarLoot.vmz", workflow)
         for asset in ("RtVRadarLoot.vmz", "rtv-toolkit.exe"):
             self.assertIn("dist/release/" + asset + "\n", workflow)
             self.assertIn("dist/release/" + asset + ".sha256\n", workflow)
@@ -51,14 +63,14 @@ class ReleaseMetadataTests(unittest.TestCase):
             zip_name = "Sobolyatnik-K-0.1.16-experimental.1-reviewed25710663-Windows.zip"
             self.assertNotIn("/releases/download/v0.1.16-experimental.1/", readme)
             self.assertNotIn("Sobolyatnik-K-v1.1-Windows.zip", readme)
-        elif public_tag == "v1.1.0":
-            self.assertEqual(label, "v1.1")
-            workflow = ROOT / ".github/workflows/sobolyatnik-v1.1-release.yml"
+        elif public_tag in ("v1.1.0", "v1.2.0"):
+            label_version = "v1.1" if public_tag == "v1.1.0" else "v1.2"
+            self.assertEqual(label, label_version)
+            workflow = ROOT / f".github/workflows/sobolyatnik-{label_version}-release.yml"
             source = workflow.read_text()
-            self.assertRegex(source, r"(?m)^\s+- v1\.1\.0$")
-            self.assertIn("name: 'Sobolyatnik-K v1.1'", source)
-            self.assertEqual(tomllib.loads((ROOT / "Cargo.toml").read_text())["package"]["version"], "1.1.0")
-            zip_name = "Sobolyatnik-K-v1.1-Windows.zip"
+            self.assertRegex(source, rf"(?m)^\s+- {re.escape(public_tag)}$")
+            self.assertIn(f"name: 'Sobolyatnik-K {label_version}'", source)
+            zip_name = f"Sobolyatnik-K-{label_version}-Windows.zip"
             for asset in ("RtVRadarLoot.vmz", "rtv-toolkit.exe"):
                 self.assertIn("dist/release/" + asset + "\n", source)
                 self.assertIn("dist/release/" + asset + ".sha256\n", source)

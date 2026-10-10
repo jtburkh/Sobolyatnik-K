@@ -17,6 +17,8 @@ pub struct Snapshot {
     pub timestamp_ms: u64,
     pub player: PlayerSnapshot,
     #[serde(default)]
+    pub summon_actions: Vec<String>,
+    #[serde(default)]
     pub map: MapSnapshot,
     #[serde(default)]
     pub ai: Vec<AiSnapshot>,
